@@ -15,7 +15,7 @@ Item {
     required property BarPopouts.Wrapper popouts
     required property bool fullscreen
 
-    readonly property bool disabled: Strings.testRegexList(Config.bar.excludedScreens, screen.name)
+    readonly property bool disabled: Strings.testRegexList(Config.bar.excludedScreens, screen?.name ?? "")
 
     readonly property int clampedWidth: Math.max(Config.border.minThickness, implicitWidth)
     readonly property int padding: Math.max(Tokens.padding.smaller, Config.border.thickness)
