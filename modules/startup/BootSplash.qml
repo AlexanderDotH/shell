@@ -4,6 +4,8 @@ import Quickshell
 import qs.services
 
 Scope {
+    id: root
+
     readonly property string primaryMonitor: Quickshell.env("CAELESTIA_PRIMARY_MONITOR") || "DP-1"
 
     SplashScreens {
