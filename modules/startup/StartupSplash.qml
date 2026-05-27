@@ -2,8 +2,6 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
-import Quickshell.Wayland
-import qs.components.containers
 import qs.services
 
 Scope {
@@ -28,39 +26,13 @@ Scope {
         onTriggered: root.dismiss()
     }
 
-    Variants {
-        model: Screens.screens.filter(s => s.name === root.primaryMonitor)
-
-        StyledWindow {
-            required property ShellScreen modelData
-
-            screen: modelData
-            name: "startup-splash"
-            visible: !root.dismissing || opacity > 0.01
-            opacity: root.dismissing ? 0 : 1
-
-            Behavior on opacity {
-                NumberAnimation {
-                    duration: 380
-                    easing.type: Easing.OutCubic
-                }
-            }
-
-            WlrLayershell.layer: WlrLayer.Overlay
-            WlrLayershell.exclusionMode: ExclusionMode.Ignore
-
-            anchors.top: true
-            anchors.bottom: true
-            anchors.left: true
-            anchors.right: true
-
-            color: Colours.tPalette.m3surface
-
-            SplashContent {
-                anchors.fill: parent
-                message: qsTr("Starting…")
-                indicatorRunning: !root.dismissing
-            }
-        }
+    SplashScreens {
+        primaryMonitor: root.primaryMonitor
+        primaryName: "startup-splash"
+        secondaryName: "startup-splash-black"
+        dismissing: root.dismissing
+        animateDismiss: true
+        message: qsTr("Starting…")
+        indicatorRunning: !root.dismissing
     }
 }
