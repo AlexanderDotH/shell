@@ -9,7 +9,6 @@ Scope {
 
     readonly property string primaryMonitor: Quickshell.env("CAELESTIA_PRIMARY_MONITOR") || "DP-1"
 
-    // Destroy layer-shell windows entirely so nothing can stay stuck on screen.
     property bool active: Quickshell.env("CAELESTIA_DISABLE_STARTUP_SPLASH") !== "1"
 
     Component.onCompleted: {
@@ -20,7 +19,7 @@ Scope {
     Timer {
         id: dismissTimer
 
-        interval: 1800
+        interval: 1000
         onTriggered: root.active = false
     }
 
@@ -31,7 +30,7 @@ Scope {
             primaryMonitor: root.primaryMonitor
             primaryName: "startup-splash"
             secondaryName: "startup-splash-black"
-            animateDismiss: false
+            animateEntrance: false
             message: qsTr("Starting…")
             indicatorRunning: true
         }

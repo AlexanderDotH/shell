@@ -13,6 +13,7 @@ Scope {
         primaryName: "boot-splash"
         secondaryName: "boot-splash-black"
         animateDismiss: false
+        animateEntrance: true
         message: qsTr("Starting shell…")
         indicatorRunning: true
     }

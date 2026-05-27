@@ -16,6 +16,7 @@ Scope {
     property bool animateDismiss: false
     property string message: qsTr("Starting…")
     property bool indicatorRunning: true
+    property bool animateEntrance: false
 
     readonly property list<ShellScreen> splashScreens: Quickshell.screens.length > 0 ? Quickshell.screens : Screens.screens
 
@@ -41,7 +42,7 @@ Scope {
 
             SplashContent {
                 anchors.fill: parent
-                dismissing: root.dismissing
+                animateEntrance: root.animateEntrance
                 message: root.message
                 indicatorRunning: root.indicatorRunning
             }
