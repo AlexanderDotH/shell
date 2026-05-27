@@ -10,8 +10,14 @@ Scope {
     readonly property string primaryMonitor: Quickshell.env("CAELESTIA_PRIMARY_MONITOR") || "DP-1"
     readonly property int expectedMonitors: parseInt(Quickshell.env("CAELESTIA_EXPECTED_MONITORS") || "3")
     property bool dismissing: false
+    property bool minShowElapsed: false
+    property bool forceDismiss: false
 
-    readonly property bool monitorsReady: Hyprland.monitors.values.length >= root.expectedMonitors
+    readonly property int monitorCount: Math.max(Hyprland.monitors.values.length, Quickshell.screens.length)
+
+    readonly property bool monitorsReady: root.monitorCount >= root.expectedMonitors
+
+    readonly property bool shouldDismiss: !root.dismissing && root.minShowElapsed && (root.monitorsReady || root.forceDismiss)
 
     function dismiss(): void {
         if (root.dismissing)
@@ -19,9 +25,25 @@ Scope {
         root.dismissing = true;
     }
 
+    Component.onCompleted: minShowTimer.start()
+
     Timer {
-        interval: root.monitorsReady ? 0 : 450
-        running: root.monitorsReady && !root.dismissing
+        id: minShowTimer
+
+        interval: 700
+        onTriggered: root.minShowElapsed = true
+    }
+
+    Timer {
+        interval: 5000
+        running: !root.dismissing
+        repeat: false
+        onTriggered: root.forceDismiss = true
+    }
+
+    Timer {
+        interval: 450
+        running: root.shouldDismiss
         repeat: false
         onTriggered: root.dismiss()
     }
