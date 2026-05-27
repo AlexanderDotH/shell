@@ -10,7 +10,7 @@ Item {
 
     property string message: qsTr("Starting…")
     property bool indicatorRunning: true
-    property bool dismissing: false
+    property bool animateEntrance: false
 
     Rectangle {
         anchors.fill: parent
@@ -22,8 +22,8 @@ Item {
 
         anchors.centerIn: parent
         spacing: Tokens.spacing.large * 2
-        opacity: 0
-        scale: 0.85
+        opacity: root.animateEntrance ? 0 : 1
+        scale: root.animateEntrance ? 0.85 : 1
 
         Item {
             Layout.alignment: Qt.AlignHCenter
@@ -43,7 +43,7 @@ Item {
             id: statusText
 
             Layout.alignment: Qt.AlignHCenter
-            opacity: 0
+            opacity: root.animateEntrance ? 0 : 1
             text: root.message
             color: Colours.tPalette.m3onSurfaceVariant
             font.pointSize: Tokens.font.size.normal
@@ -53,7 +53,7 @@ Item {
             id: spinner
 
             Layout.alignment: Qt.AlignHCenter
-            opacity: 0
+            opacity: root.animateEntrance ? 0 : 1
             running: root.indicatorRunning
             implicitSize: Tokens.font.size.normal * 3
             fgColour: Colours.palette.m3primary
@@ -99,5 +99,8 @@ Item {
         }
     }
 
-    Component.onCompleted: entranceAnim.start()
+    Component.onCompleted: {
+        if (root.animateEntrance)
+            entranceAnim.start();
+    }
 }
