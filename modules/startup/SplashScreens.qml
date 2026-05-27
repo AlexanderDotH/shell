@@ -21,8 +21,11 @@ Scope {
 
     readonly property real windowOpacity: root.dismissing ? 0 : 1
 
+    // Boot splash runs before shell config is fully ready; fall back to Quickshell.screens.
+    readonly property list<ShellScreen> splashScreens: Screens.screens.length > 0 ? Screens.screens : Quickshell.screens
+
     Variants {
-        model: Screens.screens.filter(s => s.name === root.primaryMonitor)
+        model: root.splashScreens.filter(s => s.name === root.primaryMonitor)
 
         StyledWindow {
             required property ShellScreen modelData
@@ -30,16 +33,6 @@ Scope {
             screen: modelData
             name: root.primaryName
             visible: root.windowVisible
-            opacity: root.windowOpacity
-
-            Behavior on opacity {
-                enabled: root.animateDismiss
-
-                NumberAnimation {
-                    duration: 380
-                    easing.type: Easing.OutCubic
-                }
-            }
 
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
@@ -49,18 +42,38 @@ Scope {
             anchors.left: true
             anchors.right: true
 
-            color: Colours.tPalette.m3surface
+            color: "transparent"
 
-            SplashContent {
+            Item {
                 anchors.fill: parent
-                message: root.message
-                indicatorRunning: root.indicatorRunning
+                opacity: root.windowOpacity
+                visible: opacity > 0.01
+
+                Behavior on opacity {
+                    enabled: root.animateDismiss
+
+                    NumberAnimation {
+                        duration: 380
+                        easing.type: Easing.OutCubic
+                    }
+                }
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: Colours.tPalette.m3surface
+                }
+
+                SplashContent {
+                    anchors.fill: parent
+                    message: root.message
+                    indicatorRunning: root.indicatorRunning
+                }
             }
         }
     }
 
     Variants {
-        model: Screens.screens.filter(s => s.name !== root.primaryMonitor)
+        model: root.splashScreens.filter(s => s.name !== root.primaryMonitor)
 
         StyledWindow {
             required property ShellScreen modelData
@@ -68,16 +81,6 @@ Scope {
             screen: modelData
             name: root.secondaryName
             visible: root.windowVisible
-            opacity: root.windowOpacity
-
-            Behavior on opacity {
-                enabled: root.animateDismiss
-
-                NumberAnimation {
-                    duration: 380
-                    easing.type: Easing.OutCubic
-                }
-            }
 
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.exclusionMode: ExclusionMode.Ignore
@@ -87,7 +90,23 @@ Scope {
             anchors.left: true
             anchors.right: true
 
-            color: "black"
+            color: "transparent"
+
+            Rectangle {
+                anchors.fill: parent
+                opacity: root.windowOpacity
+                visible: opacity > 0.01
+                color: "black"
+
+                Behavior on opacity {
+                    enabled: root.animateDismiss
+
+                    NumberAnimation {
+                        duration: 380
+                        easing.type: Easing.OutCubic
+                    }
+                }
+            }
         }
     }
 }
