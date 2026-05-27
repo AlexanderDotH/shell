@@ -99,6 +99,17 @@ Singleton {
         return false;
     }
 
+    // FDO notification hints can be icon names, absolute paths, file:// URLs, or image://icon URLs.
+    function resolveNotificationIcon(icon: string): string {
+        if (!icon || icon.length === 0)
+            return "";
+        if (icon.startsWith("image://icon/") || icon.startsWith("file://"))
+            return icon;
+        if (icon.startsWith("/"))
+            return "file://" + icon;
+        return Quickshell.iconPath(icon, "image-missing");
+    }
+
     function getAppIcon(name: string, fallback: string): string {
         const icon = DesktopEntries.heuristicLookup(name)?.icon;
         if (fallback !== "undefined")

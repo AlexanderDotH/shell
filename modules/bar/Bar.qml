@@ -109,7 +109,7 @@ ColumnLayout {
         id: repeater
 
         model: ScriptModel {
-            values: root.Config.bar.entries.filter(e => e.enabled ?? true)
+            values: Config.bar.entries.filter(e => (e.enabled ?? true) && (e.id !== "activeWindow" || Brightness.getMonitorForScreen(root.screen) !== null))
         }
 
         DelegateChooser {
