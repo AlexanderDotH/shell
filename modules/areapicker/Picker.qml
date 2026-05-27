@@ -34,7 +34,7 @@ MouseArea {
     property real sh: Math.abs(sy - ey)
 
     property list<var> clients: {
-        const mon = Hypr.monitorFor(screen);
+        const mon = Hypr.safeMonitorFor(screen);
         if (!mon)
             return [];
 

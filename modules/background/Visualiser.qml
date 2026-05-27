@@ -15,7 +15,7 @@ Item {
     required property ShellScreen screen
     required property Item wallpaper
 
-    readonly property bool shouldBeActive: Config.background.visualiser.enabled && (!Config.background.visualiser.autoHide || (Hypr.monitorFor(screen)?.activeWorkspace?.toplevels?.values.every(t => t.lastIpcObject?.floating) ?? true))
+    readonly property bool shouldBeActive: Config.background.visualiser.enabled && (!Config.background.visualiser.autoHide || (Hypr.safeMonitorFor(screen)?.activeWorkspace?.toplevels?.values.every(t => t.lastIpcObject?.floating) ?? true))
     property real offset: shouldBeActive ? 0 : screen.height * 0.2
 
     opacity: shouldBeActive ? 1 : 0
@@ -60,7 +60,7 @@ Item {
 
                     anchors.fill: parent
                     anchors.margins: Config.border.thickness
-                    anchors.leftMargin: (ShellState.componentsFor(root.screen)?.bar?.exclusiveZone ?? 0) + Tokens.spacing.small * Config.background.visualiser.spacing
+                    anchors.leftMargin: (ShellState.componentsFor(root.screen)?.bar?.exclusiveZone ?? Config.border.thickness) + Tokens.spacing.small * Config.background.visualiser.spacing
 
                     values: Audio.cava.values
                     primaryColor: Qt.alpha(Colours.palette.m3primary, 0.7)

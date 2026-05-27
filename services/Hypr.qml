@@ -87,6 +87,17 @@ Singleton {
         return Hyprland.monitorFor(screen);
     }
 
+    function safeMonitorFor(screen: ShellScreen): var {
+        if (!screen)
+            return null;
+        return Hyprland.monitorFor(screen) ?? null;
+    }
+
+    function activeWorkspaceIdFor(screen: ShellScreen): int {
+        const mon = safeMonitorFor(screen);
+        return mon?.activeWorkspace?.id ?? activeWsId;
+    }
+
     function reloadDynamicConfs(): void {
         if (usingLua) {
             extras.batchMessage(['eval hl.bind("Caps_Lock", hl.dsp.global("caelestia:refreshDevices"), { locked = true, non_consuming = true, ignore_mods = true, release = true })', 'eval hl.bind("Num_Lock", hl.dsp.global("caelestia:refreshDevices"), { locked = true, non_consuming = true, ignore_mods = true, release = true })']);

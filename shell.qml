@@ -11,12 +11,16 @@ import "modules/areapicker"
 import "modules/lock"
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import qs.services
 
 ShellRoot {
     id: root
 
     settings.watchFiles: true
+
+    readonly property int expectedMonitors: parseInt(Quickshell.env("CAELESTIA_EXPECTED_MONITORS") || "3")
+    readonly property bool monitorsReady: Hyprland.monitors.values.length >= expectedMonitors
 
     Binding {
         target: ShellState
@@ -27,8 +31,15 @@ ShellRoot {
     GSFLoader {}
     ServiceLoader {}
 
-    Background {}
-    Drawers {}
+    Loader {
+        active: root.monitorsReady
+
+        sourceComponent: Item {
+            Background {}
+            Drawers {}
+        }
+    }
+
     AreaPicker {}
     Lock {
         id: lock
