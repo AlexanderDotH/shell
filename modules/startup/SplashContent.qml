@@ -83,8 +83,6 @@ Item {
     ParallelAnimation {
         id: entranceAnim
 
-        running: !root.dismissing
-
         Anim {
             target: content
             properties: "opacity,scale"
@@ -131,6 +129,8 @@ Item {
         }
     }
 
+    Component.onCompleted: entranceAnim.start()
+
     ParallelAnimation {
         id: exitAnim
 
@@ -149,5 +149,7 @@ Item {
             to: 0.88
             type: Anim.FastSpatial
         }
+
+        onFinished: content.visible = false
     }
 }

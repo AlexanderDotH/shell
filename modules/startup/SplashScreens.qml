@@ -18,12 +18,25 @@ Scope {
     property string message: qsTr("Starting…")
     property bool indicatorRunning: true
 
-    readonly property bool windowVisible: !root.dismissing || (root.animateDismiss && windowOpacity > 0.01)
+    property bool hidden: false
+
+    readonly property bool windowVisible: !root.hidden
 
     readonly property real windowOpacity: root.dismissing ? 0 : 1
 
-    // Boot splash runs before shell config is fully ready; fall back to Quickshell.screens.
     readonly property list<ShellScreen> splashScreens: Screens.screens.length > 0 ? Screens.screens : Quickshell.screens
+
+    onDismissingChanged: {
+        if (root.dismissing)
+            hideTimer.restart();
+    }
+
+    Timer {
+        id: hideTimer
+
+        interval: root.animateDismiss ? 420 : 0
+        onTriggered: root.hidden = true
+    }
 
     Variants {
         model: root.splashScreens.filter(s => s.name === root.primaryMonitor)
@@ -48,7 +61,7 @@ Scope {
             Item {
                 anchors.fill: parent
                 opacity: root.windowOpacity
-                visible: opacity > 0.01
+                visible: root.windowVisible
 
                 Behavior on opacity {
                     enabled: root.animateDismiss
@@ -63,13 +76,15 @@ Scope {
                     id: surfaceBg
 
                     anchors.fill: parent
-                    opacity: 0
+                    opacity: root.dismissing ? 0 : surfaceOpacity
                     color: Colours.tPalette.m3surface
 
+                    property real surfaceOpacity: 0
+
                     Anim {
-                        running: true
+                        running: !root.dismissing
                         target: surfaceBg
-                        property: "opacity"
+                        property: "surfaceOpacity"
                         from: 0
                         to: 1
                         type: Anim.StandardLarge
@@ -109,7 +124,7 @@ Scope {
             Rectangle {
                 anchors.fill: parent
                 opacity: root.windowOpacity
-                visible: opacity > 0.01
+                visible: root.windowVisible
                 color: "black"
 
                 Behavior on opacity {
