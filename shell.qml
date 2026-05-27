@@ -9,13 +9,11 @@ import "modules/drawers"
 import "modules/background"
 import "modules/areapicker"
 import "modules/lock"
-import "modules/startup"
 import Quickshell
 
 ShellRoot {
     settings.watchFiles: true
 
-    StartupSplash {}
     Background {}
     Drawers {}
     AreaPicker {}
