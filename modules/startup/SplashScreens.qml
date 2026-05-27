@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
+import qs.components
 import qs.components.containers
 import qs.services
 
@@ -59,12 +60,25 @@ Scope {
                 }
 
                 Rectangle {
+                    id: surfaceBg
+
                     anchors.fill: parent
+                    opacity: 0
                     color: Colours.tPalette.m3surface
+
+                    Anim {
+                        running: true
+                        target: surfaceBg
+                        property: "opacity"
+                        from: 0
+                        to: 1
+                        type: Anim.StandardLarge
+                    }
                 }
 
                 SplashContent {
                     anchors.fill: parent
+                    dismissing: root.dismissing
                     message: root.message
                     indicatorRunning: root.indicatorRunning
                 }
