@@ -12,13 +12,18 @@ Item {
     property bool indicatorRunning: true
     property bool dismissing: false
 
+    Rectangle {
+        anchors.fill: parent
+        color: Colours.tPalette.m3surface
+    }
+
     ColumnLayout {
         id: content
 
         anchors.centerIn: parent
         spacing: Tokens.spacing.large * 2
         opacity: 0
-        scale: 0
+        scale: 0.85
 
         Item {
             Layout.alignment: Qt.AlignHCenter
@@ -27,34 +32,10 @@ Item {
 
             id: logoWrap
 
-            rotation: 180
             transformOrigin: Item.Center
 
             Logo {
                 anchors.fill: parent
-            }
-
-            SequentialAnimation {
-                running: root.indicatorRunning && !root.dismissing
-                loops: Animation.Infinite
-
-                NumberAnimation {
-                    target: logoWrap
-                    property: "opacity"
-                    from: 0.82
-                    to: 1
-                    duration: Tokens.anim.durations.large
-                    easing.type: Easing.InOutSine
-                }
-
-                NumberAnimation {
-                    target: logoWrap
-                    property: "opacity"
-                    from: 1
-                    to: 0.82
-                    duration: Tokens.anim.durations.large
-                    easing.type: Easing.InOutSine
-                }
             }
         }
 
@@ -92,23 +73,12 @@ Item {
         }
 
         SequentialAnimation {
-            ParallelAnimation {
-                Anim {
-                    target: logoWrap
-                    property: "rotation"
-                    from: 180
-                    to: 360
-                    duration: Tokens.anim.durations.expressiveFastSpatial
-                    easing: Tokens.anim.standardAccel
-                }
-
-                Anim {
-                    target: logoWrap
-                    property: "scale"
-                    from: 0.65
-                    to: 1
-                    type: Anim.FastSpatial
-                }
+            Anim {
+                target: logoWrap
+                property: "scale"
+                from: 0.7
+                to: 1
+                type: Anim.FastSpatial
             }
 
             Anim {
@@ -130,26 +100,4 @@ Item {
     }
 
     Component.onCompleted: entranceAnim.start()
-
-    ParallelAnimation {
-        id: exitAnim
-
-        running: root.dismissing
-
-        Anim {
-            target: content
-            property: "opacity"
-            to: 0
-            type: Anim.StandardSmall
-        }
-
-        Anim {
-            target: content
-            property: "scale"
-            to: 0.88
-            type: Anim.FastSpatial
-        }
-
-        onFinished: content.visible = false
-    }
 }

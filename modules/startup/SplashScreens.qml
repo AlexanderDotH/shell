@@ -3,7 +3,6 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
-import qs.components
 import qs.components.containers
 import qs.services
 
@@ -18,7 +17,7 @@ Scope {
     property string message: qsTr("Starting…")
     property bool indicatorRunning: true
 
-    readonly property list<ShellScreen> splashScreens: Screens.screens.length > 0 ? Screens.screens : Quickshell.screens
+    readonly property list<ShellScreen> splashScreens: Quickshell.screens.length > 0 ? Quickshell.screens : Screens.screens
 
     Variants {
         model: root.splashScreens.filter(s => s.name === root.primaryMonitor)
@@ -38,7 +37,7 @@ Scope {
             anchors.left: true
             anchors.right: true
 
-            color: Colours.tPalette.m3surface
+            color: "black"
 
             SplashContent {
                 anchors.fill: parent
