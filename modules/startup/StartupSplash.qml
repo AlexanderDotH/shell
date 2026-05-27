@@ -20,7 +20,7 @@ Scope {
     Timer {
         id: dismissTimer
 
-        interval: 1200
+        interval: 1800
         onTriggered: root.active = false
     }
 
