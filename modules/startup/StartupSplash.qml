@@ -1,10 +1,8 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
-import QtQuick.Controls
 import Quickshell
 import Quickshell.Wayland
-import qs.components
 import qs.components.containers
 import qs.services
 
@@ -56,30 +54,12 @@ Scope {
             anchors.left: true
             anchors.right: true
 
-            color: Colours.palette.m3surface
+            color: Colours.tPalette.m3surface
 
-            Column {
-                anchors.centerIn: parent
-                spacing: 32
-
-                Logo {
-                    width: 128
-                    height: 90
-                }
-
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    text: qsTr("Starting…")
-                    font.pixelSize: 16
-                    color: Colours.palette.m3onSurfaceVariant
-                }
-
-                BusyIndicator {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    implicitWidth: 36
-                    implicitHeight: 36
-                    running: !root.dismissing
-                }
+            SplashContent {
+                anchors.fill: parent
+                message: qsTr("Starting…")
+                indicatorRunning: !root.dismissing
             }
         }
     }
