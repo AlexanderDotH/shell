@@ -15,6 +15,7 @@ Item {
 
     required property ShellScreen screen
     readonly property var monitor: Hypr.safeMonitorFor(screen)
+    visible: monitor !== null
     readonly property string activeSpecial: (GlobalConfig.bar.workspaces.perMonitorWorkspaces ? monitor : Hypr.focusedMonitor)?.lastIpcObject.specialWorkspace?.name ?? ""
 
     layer.enabled: true

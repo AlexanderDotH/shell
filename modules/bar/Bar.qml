@@ -140,6 +140,7 @@ ColumnLayout {
                 delegate: WrappedLoader {
                     Layout.fillWidth: true
                     visible: !root.fullscreen
+                    loadActive: Brightness.getMonitorForScreen(root.screen) !== null
                     sourceComponent: ActiveWindow {
                         bar: root
                         monitor: Brightness.getMonitorForScreen(root.screen)
@@ -182,6 +183,7 @@ ColumnLayout {
         required enabled
         required property string id
         required property int index
+        property bool loadActive: true
 
         function findFirstEnabled(): Item {
             const count = repeater.count;
@@ -210,6 +212,6 @@ ColumnLayout {
         Layout.bottomMargin: findLastEnabled() === this ? root.vPadding : 0
 
         visible: enabled
-        active: enabled
+        active: enabled && loadActive
     }
 }

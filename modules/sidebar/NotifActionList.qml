@@ -168,7 +168,7 @@ Item {
 
                         IconImage {
                             asynchronous: true
-                            source: Quickshell.iconPath(action.modelData.identifier)
+                            source: Icons.resolveNotificationIcon(action.modelData.identifier)
                         }
                     }
 
