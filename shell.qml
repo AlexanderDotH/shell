@@ -4,6 +4,7 @@
 //@ pragma DefaultEnv QSG_RENDER_LOOP=threaded
 //@ pragma DefaultEnv QT_QUICK_FLICKABLE_WHEEL_DECELERATION=10000
 
+import QtQuick
 import "modules"
 import "modules/drawers"
 import "modules/background"
@@ -13,11 +14,25 @@ import "modules/startup"
 import Quickshell
 
 ShellRoot {
+    id: root
+
     settings.watchFiles: true
 
-    StartupSplash {}
-    Background {}
-    Drawers {}
+    readonly property bool shellUiReady: !startupSplash.active
+
+    StartupSplash {
+        id: startupSplash
+    }
+
+    Loader {
+        active: root.shellUiReady
+
+        Item {
+            Background {}
+            Drawers {}
+        }
+    }
+
     AreaPicker {}
     Lock {
         id: lock

@@ -7,18 +7,20 @@ import qs.services
 Scope {
     id: root
 
-    readonly property string primaryMonitor: Quickshell.env("CAELESTIA_PRIMARY_MONITOR") || "DP-1"
     readonly property int expectedMonitors: parseInt(Quickshell.env("CAELESTIA_EXPECTED_MONITORS") || "3")
 
     property bool active: Quickshell.env("CAELESTIA_DISABLE_STARTUP_SPLASH") !== "1"
     property bool minShowElapsed: false
     property bool forceDismiss: false
 
-    readonly property int monitorCount: Math.max(Hyprland.monitors.values.length, Quickshell.screens.length)
+    readonly property int screenCount: Quickshell.screens.length
 
-    readonly property bool monitorsReady: root.monitorCount >= root.expectedMonitors
+    readonly property bool screensReady: root.screenCount >= root.expectedMonitors
 
-    readonly property bool shouldDismiss: root.active && root.minShowElapsed && (root.monitorsReady || root.forceDismiss)
+    readonly property bool shouldDismiss: root.active && root.minShowElapsed && (root.screensReady || root.forceDismiss)
+
+    // Do not create layer windows until Quickshell has a screen object per output.
+    readonly property bool canShow: root.active && root.screensReady
 
     Component.onCompleted: {
         if (root.active)
@@ -40,19 +42,16 @@ Scope {
     }
 
     Timer {
-        interval: 350
+        interval: 400
         running: root.shouldDismiss
         repeat: false
         onTriggered: root.active = false
     }
 
     LazyLoader {
-        active: root.active
+        active: root.canShow
 
         SplashScreens {
-            primaryMonitor: root.primaryMonitor
-            primaryName: "startup-splash"
-            secondaryName: "startup-splash-black"
             animateEntrance: true
             message: qsTr("Starting…")
             indicatorRunning: true
