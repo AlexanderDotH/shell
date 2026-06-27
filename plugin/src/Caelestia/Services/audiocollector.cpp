@@ -42,8 +42,12 @@ PipeWireWorker::PipeWireWorker(std::stop_token token, AudioCollector* collector)
     pw_loop_update_timer(pw_main_loop_get_loop(m_loop), m_timer, &timeout, &timeout, false);
 
     auto props = pw_properties_new(
-        PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Capture", PW_KEY_MEDIA_ROLE, "Music", nullptr);
+        PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Monitor", PW_KEY_MEDIA_ROLE, "Music", nullptr);
+    // Keep the visualizer on playback capture. Without this, WirePlumber can restore
+    // an old recording target and feed the visualizer from a microphone.
     pw_properties_set(props, PW_KEY_STREAM_CAPTURE_SINK, "true");
+    pw_properties_set(props, PW_KEY_STREAM_MONITOR, "true");
+    pw_properties_set(props, "state.restore-target", "false");
     pw_properties_setf(
         props, PW_KEY_NODE_LATENCY, "%u/%u", nextPowerOf2(512 * ac::SAMPLE_RATE / 48000), ac::SAMPLE_RATE);
     pw_properties_set(props, PW_KEY_NODE_PASSIVE, "true");

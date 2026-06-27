@@ -402,6 +402,17 @@ For example, to disable the bar on DP-1:
                 "blur": 0.4
             }
         },
+        "desktopLyrics": {
+            "enabled": false,
+            "scale": 1.0,
+            "showWhilePaused": true,
+            "excludedScreens": [],
+            "background": {
+                "enabled": false,
+                "opacity": 0.22,
+                "blur": true
+            }
+        },
         "visualiser": {
             "enabled": false,
             "autoHide": true,
