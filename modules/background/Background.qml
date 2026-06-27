@@ -58,6 +58,29 @@ Variants {
         }
 
         Loader {
+            id: lyricsLoader
+
+            readonly property real leftExclusion: ShellState.componentsFor(win.modelData)?.bar?.exclusiveZone ?? Config.border.thickness
+            readonly property list<string> excludedScreens: Config.background.desktopLyrics.excludedScreens ?? []
+            readonly property bool desktopLyricsEnabled: GlobalConfig.background.desktopLyrics.enabled && Config.background.desktopLyrics.enabled && !excludedScreens.includes(win.modelData.name)
+
+            asynchronous: true
+            active: desktopLyricsEnabled
+
+            width: Math.max(320, Math.min(parent.width - leftExclusion - Tokens.padding.large * 4, 1000 * Config.background.desktopLyrics.scale))
+            height: Math.min(parent.height * 0.52, item ? item.implicitHeight : 320 * Config.background.desktopLyrics.scale)
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.horizontalCenterOffset: leftExclusion / 2
+
+            sourceComponent: DesktopLyrics {
+                wallpaper: behindClock
+                absX: lyricsLoader.x
+                absY: lyricsLoader.y
+            }
+        }
+
+        Loader {
             id: clockLoader
 
             asynchronous: true

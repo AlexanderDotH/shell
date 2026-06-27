@@ -15,19 +15,18 @@ Scope {
     property string message: qsTr("Starting…")
     property bool indicatorRunning: true
     property bool animateEntrance: false
-
-    // Use live Quickshell screens only — avoids dangling ShellScreen from Hypr filter mismatch.
-    readonly property list<ShellScreen> splashScreens: Quickshell.screens
+    property bool visible: true
 
     Variants {
-        model: root.splashScreens
+        // Rebinds when monitors hotplug — no cached screen list or expected count.
+        model: Quickshell.screens.filter(s => s && s.name)
 
         StyledWindow {
             required property ShellScreen modelData
 
             screen: modelData
             name: `${root.primaryName}-${modelData.name}`
-            visible: true
+            visible: root.visible && !root.dismissing
 
             WlrLayershell.layer: WlrLayer.Overlay
             WlrLayershell.exclusionMode: ExclusionMode.Ignore

@@ -3,6 +3,7 @@
 #include <qjsvalue.h>
 #include <qjsvalueiterator.h>
 #include <qloggingcategory.h>
+#include <qmessageauthenticationcode.h>
 #include <qnetworkaccessmanager.h>
 #include <qnetworkcookiejar.h>
 #include <qnetworkreply.h>
@@ -27,19 +28,7 @@ QVariantMap responseMetadata(const QNetworkReply* reply) {
         { "headers", headers } };
 }
 
-} // namespace
-
-Requests::Requests(QObject* parent)
-    : QObject(parent)
-    , m_manager(new QNetworkAccessManager(this)) {}
-
-void Requests::get(const QUrl& url, QJSValue onSuccess, QJSValue onError, QJSValue headers) const {
-    if (!onSuccess.isCallable()) {
-        qCWarning(lcRequests) << "get: onSuccess is not callable";
-        return;
-    }
-
-    QNetworkRequest request(url);
+void applyHeaders(QNetworkRequest& request, QJSValue headers) {
     request.setAttribute(QNetworkRequest::CacheLoadControlAttribute, QNetworkRequest::AlwaysNetwork);
     request.setAttribute(QNetworkRequest::CookieSaveControlAttribute, QNetworkRequest::Manual);
     request.setRawHeader("Cache-Control", "no-cache, no-store");
@@ -53,14 +42,14 @@ void Requests::get(const QUrl& url, QJSValue onSuccess, QJSValue onError, QJSVal
             request.setRawHeader(it.name().toUtf8(), it.value().toString().toUtf8());
         }
     }
+}
 
-    auto reply = m_manager->get(request);
-
-    QObject::connect(reply, &QNetworkReply::finished, this, [this, reply, onSuccess, onError]() {
+void connectReply(QNetworkReply* reply, const QObject* context, QJSValue onSuccess, QJSValue onError) {
+    QObject::connect(reply, &QNetworkReply::finished, context, [reply, context, onSuccess, onError]() {
         const QString body = QString::fromUtf8(reply->readAll());
 
         QJSValue metadata;
-        if (auto* engine = qmlEngine(this))
+        if (auto* engine = qmlEngine(context))
             metadata = engine->toScriptValue(responseMetadata(reply));
 
         if (reply->error() == QNetworkReply::NoError) {
@@ -68,11 +57,45 @@ void Requests::get(const QUrl& url, QJSValue onSuccess, QJSValue onError, QJSVal
         } else if (onError.isCallable()) {
             onError.call({ reply->errorString(), metadata });
         } else {
-            qCWarning(lcRequests) << "get: request failed with error" << reply->errorString();
+            qCWarning(lcRequests) << "request failed with error" << reply->errorString();
         }
 
         reply->deleteLater();
     });
+}
+
+} // namespace
+
+Requests::Requests(QObject* parent)
+    : QObject(parent)
+    , m_manager(new QNetworkAccessManager(this)) {}
+
+void Requests::get(const QUrl& url, QJSValue onSuccess, QJSValue onError, QJSValue headers) const {
+    if (!onSuccess.isCallable()) {
+        qCWarning(lcRequests) << "get: onSuccess is not callable";
+        return;
+    }
+
+    QNetworkRequest request(url);
+    applyHeaders(request, headers);
+    connectReply(m_manager->get(request), this, onSuccess, onError);
+}
+
+void Requests::post(
+    const QUrl& url, const QString& body, QJSValue onSuccess, QJSValue onError, QJSValue headers) const {
+    if (!onSuccess.isCallable()) {
+        qCWarning(lcRequests) << "post: onSuccess is not callable";
+        return;
+    }
+
+    QNetworkRequest request(url);
+    applyHeaders(request, headers);
+    connectReply(m_manager->post(request, body.toUtf8()), this, onSuccess, onError);
+}
+
+QString Requests::hmacSha1Base64(const QString& message, const QString& key) const {
+    return QString::fromLatin1(
+        QMessageAuthenticationCode::hash(message.toUtf8(), key.toUtf8(), QCryptographicHash::Sha1).toBase64());
 }
 
 void Requests::resetCookies() const {

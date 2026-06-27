@@ -13,6 +13,8 @@ Singleton {
     id: root
 
     property bool showPreview
+    /// True after the on-disk colour scheme has been applied (startup splash waits for this).
+    property bool schemeReady: false
     property string scheme
     property string flavour
     readonly property bool light: showPreview ? previewLight : currentLight
@@ -76,6 +78,9 @@ Singleton {
             if (colours.hasOwnProperty(propName))
                 colours[propName] = `#${colour}`;
         }
+
+        if (!isPreview)
+            root.schemeReady = true;
     }
 
     function setMode(mode: string): void {
@@ -114,10 +119,25 @@ Singleton {
     }
 
     FileView {
+        id: schemeFile
+
         path: `${Paths.state}/scheme.json`
+        printErrors: false
         watchChanges: true
         onFileChanged: reload()
         onLoaded: root.load(text(), false)
+        onLoadFailed: err => {
+            if (err === FileViewError.FileNotFound)
+                root.schemeReady = true;
+        }
+    }
+
+    // Avoid an indefinite black splash if scheme.json is missing or slow.
+    Timer {
+        interval: 2500
+        running: !root.schemeReady
+        repeat: false
+        onTriggered: root.schemeReady = true
     }
 
     ImageAnalyser {
