@@ -17,10 +17,7 @@ Searcher {
                 workingDirectory: entry.workingDirectory
             });
         else
-            Quickshell.execDetached({
-                command: ["app2unit", "--", ...entry.command],
-                workingDirectory: entry.workingDirectory
-            });
+            entry.execute();
     }
 
     function search(search: string): list<var> {
