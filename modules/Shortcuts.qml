@@ -12,12 +12,24 @@ Scope {
     property bool launcherInterrupted
     readonly property bool hasFullscreen: Hypr.focusedWorkspace?.toplevels.values.some(t => t.lastIpcObject.fullscreen > 1) ?? false
 
+    function openNexus(): void {
+        WindowFactory.create();
+    }
+
     // qmllint disable unresolved-type
     CustomShortcut {
         // qmllint enable unresolved-type
         name: "nexus"
         description: "Open nexus"
-        onPressed: WindowFactory.create()
+        onPressed: root.openNexus()
+    }
+
+    // qmllint disable unresolved-type
+    CustomShortcut {
+        // qmllint enable unresolved-type
+        name: "controlCenter"
+        description: "Open nexus"
+        onPressed: root.openNexus()
     }
 
     // qmllint disable unresolved-type
@@ -137,10 +149,18 @@ Scope {
 
     IpcHandler {
         function open(): void {
-            WindowFactory.create();
+            root.openNexus();
         }
 
         target: "nexus"
+    }
+
+    IpcHandler {
+        function open(): void {
+            root.openNexus();
+        }
+
+        target: "controlCenter"
     }
 
     IpcHandler {
