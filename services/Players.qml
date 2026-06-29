@@ -6,6 +6,7 @@ import Quickshell.Io
 import Quickshell.Services.Mpris
 import Caelestia
 import Caelestia.Config
+import Caelestia.Services
 import qs.components.misc
 
 Singleton {
@@ -14,6 +15,15 @@ Singleton {
     readonly property list<MprisPlayer> list: Mpris.players.values
     readonly property MprisPlayer active: props.manualActive ?? list.find(p => getIdentity(p) === GlobalConfig.services.defaultPlayer) ?? list[0] ?? null
     property alias manualActive: props.manualActive
+
+    function syncLyricsTrack(): void {
+        const active = root.active;
+        if (active && (active.trackArtist || active.trackTitle)) {
+            Lyrics.setTrack(active.trackArtist, active.trackTitle, active.trackAlbum, active.length);
+        } else {
+            Lyrics.clearTrack();
+        }
+    }
 
     function getIdentity(player: MprisPlayer): string {
         if (!player)
@@ -39,6 +49,8 @@ Singleton {
 
     Connections {
         function onPostTrackChanged() {
+            root.syncLyricsTrack();
+
             if (!GlobalConfig.utilities.toasts.nowPlaying) {
                 return;
             }
@@ -49,6 +61,10 @@ Singleton {
 
         target: root.active
     }
+
+    onActiveChanged: Qt.callLater(syncLyricsTrack)
+
+    Component.onCompleted: Qt.callLater(syncLyricsTrack)
 
     PersistentProperties {
         id: props

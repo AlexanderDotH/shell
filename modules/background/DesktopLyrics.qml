@@ -16,13 +16,6 @@ Item {
     required property real absX
     required property real absY
 
-    readonly property var _: {
-        const player = Players.active;
-        if (player)
-            Lyrics.setTrack(player.trackArtist, player.trackTitle, player.trackAlbum, player.length);
-        else
-            Lyrics.clearTrack();
-    }
     readonly property int visibleLineCount: 5
     readonly property real lyricScale: Config.background.desktopLyrics.scale
     readonly property real backgroundOpacity: Math.max(0, Math.min(Config.background.desktopLyrics.background.opacity, 1))
