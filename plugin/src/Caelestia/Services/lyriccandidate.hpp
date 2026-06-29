@@ -14,7 +14,10 @@ public:
         Auto = 0,
         Local,
         LRCLIB,
-        NetEase
+        NetEase,
+        Deezer,
+        Musixmatch,
+        SpicyLyrics
     };
     Q_ENUM(Backend)
 

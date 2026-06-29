@@ -7,6 +7,8 @@
 #include <qnetworkaccessmanager.h>
 #include <qnetworkreply.h>
 
+#include <functional>
+
 namespace caelestia::services {
 
 struct LyricLine {
@@ -84,16 +86,29 @@ private:
     void tryLocal(int reqId);
     void tryLrclib(int reqId);
     void tryNetEase(int reqId);
+    void tryDeezer(int reqId);
+    void tryMusixmatch(int reqId);
+    void trySpicyLyrics(int reqId);
     void chainNext(LyricsBackend::Backend just_failed, int reqId);
 
     void searchLrclibCandidates(int reqId);
     void searchNetEaseCandidates(int reqId);
+    void searchDeezerCandidates(int reqId);
+    void searchMusixmatchCandidates(int reqId);
+    void searchSpicyLyricsCandidates(int reqId);
 
     void fetchLrclibById(const QString& id, int reqId);
     void fetchNetEaseLyricsById(const QString& id, int reqId, const LyricCandidate& candidate = {});
+    void fetchDeezerLyricsById(const QString& id, int reqId, const LyricCandidate& candidate = {}, bool chainOnFailure = false);
+    void fetchMusixmatchLyricsById(
+        const QString& id, int reqId, const LyricCandidate& candidate = {}, bool chainOnFailure = false);
+    void fetchSpicyLyricsById(const QString& id, int reqId, const LyricCandidate& candidate = {}, bool chainOnFailure = false);
 
     QNetworkReply* getJson(const QUrl& url, const QHash<QByteArray, QByteArray>& headers = {});
+    QNetworkReply* postJson(
+        const QUrl& url, const QJsonObject& payload, const QHash<QByteArray, QByteArray>& headers = {});
     void trackReply(int reqId, QNetworkReply* reply);
+    void finishProviderFailure(LyricsBackend::Backend backend, int reqId, bool chainOnFailure);
 
     void onPreferredBackendConfigChanged();
     void onProviderConfigChanged();
@@ -104,7 +119,15 @@ private:
 
     [[nodiscard]] QString lyricsDir() const;
     [[nodiscard]] QString netEaseApiBase() const;
+    [[nodiscard]] QString deezerArl() const;
+    [[nodiscard]] QString spotifyAccessToken() const;
     [[nodiscard]] QUrl netEaseApiUrl(const QString& endpoint) const;
+    [[nodiscard]] QUrl musixmatchDesktopUrl(
+        const QString& endpoint, const QString& userToken, const QList<QPair<QString, QString>>& extraParams,
+        const QString& signKey = {});
+    void ensureMusixmatchDesktopToken(int reqId, std::function<void(const QString&)> callback);
+    void ensureMusixmatchSignKey(int reqId, std::function<void(const QString&)> callback);
+    void ensureSpotifyAccessToken(int reqId, std::function<void(const QString&)> callback);
     [[nodiscard]] QString lyricsMapPath() const;
     [[nodiscard]] QString trackKey() const;
     [[nodiscard]] static QString backendKey(LyricsBackend::Backend value);
@@ -140,6 +163,14 @@ private:
 
     int m_currentRequestId = 0;
     QHash<int, QList<QPointer<QNetworkReply>>> m_pendingReplies;
+
+    QString m_musixmatchDesktopGuid;
+    QString m_musixmatchDesktopUserToken;
+    qint64 m_musixmatchDesktopTokenExpiresAtMs = 0;
+    QString m_musixmatchSignKey;
+    qint64 m_musixmatchSignKeyExpiresAtMs = 0;
+    QString m_spotifyAccessTokenCache;
+    qint64 m_spotifyAccessTokenExpiresAtMs = 0;
 
     QJsonObject m_lyricsMap;
     bool m_lyricsMapLoaded = false;
