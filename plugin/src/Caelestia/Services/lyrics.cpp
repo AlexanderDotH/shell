@@ -913,7 +913,7 @@ void Lyrics::doLoad() {
         break;
     case LyricsBackend::Auto:
     default:
-        tryLocal(reqId);
+        tryLrclib(reqId);
         break;
     }
 }
