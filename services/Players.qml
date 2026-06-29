@@ -14,6 +14,7 @@ Singleton {
 
     readonly property list<MprisPlayer> list: Mpris.players.values
     readonly property MprisPlayer active: props.manualActive ?? list.find(p => getIdentity(p) === GlobalConfig.services.defaultPlayer) ?? list[0] ?? null
+    property string activeArtUrl: ""
     property alias manualActive: props.manualActive
 
     // Dedup key for progressive metadata (e.g. mpv-mpris/yt-dlp player fills title then artist later).
@@ -28,6 +29,20 @@ Singleton {
         }
     }
 
+    function normaliseArtUrl(value): string {
+        const url = String(value ?? "").trim();
+        if (!url)
+            return "";
+        if (url.startsWith("/") || url.startsWith("~"))
+            return encodeURI(`file://${url.replace(/^~/, Quickshell.env("HOME"))}`);
+        return encodeURI(url);
+    }
+
+    function youtubeVideoId(url): string {
+        const match = url.match(/(?:[?&]v=|youtu\.be\/|\/embed\/|\/shorts\/|\/live\/)([A-Za-z0-9_-]{11})/);
+        return match?.[1] ?? "";
+    }
+
     function getIdentity(player: MprisPlayer): string {
         if (!player)
             return "";
@@ -39,15 +54,22 @@ Singleton {
         if (!player)
             return "";
         if (player.trackArtUrl)
-            return player.trackArtUrl;
+            return normaliseArtUrl(player.trackArtUrl);
+
+        const metadataArt = normaliseArtUrl(player.metadata["mpris:artUrl"]);
+        if (metadataArt)
+            return metadataArt;
 
         const url = player.metadata["xesam:url"] ?? "";
-        if (url.startsWith("https://www.youtube.com/watch")) {
-            // Fallback for youtube
-            const id = url.match(/[?&]v=([\w-]{11})/)?.[1];
+        if (url.includes("youtube.com/") || url.includes("youtu.be/")) {
+            const id = youtubeVideoId(url);
             return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : "";
         }
         return "";
+    }
+
+    function syncActiveArtUrl(): void {
+        activeArtUrl = getArtUrl(active);
     }
 
     // Quickshell only emits postTrackChanged when trackid/url/title change, so late
@@ -77,11 +99,13 @@ Singleton {
     onActiveChanged: {
         lastNowPlayingKey = "";
         Qt.callLater(syncLyricsTrack);
+        Qt.callLater(syncActiveArtUrl);
     }
 
     Connections {
         function onPostTrackChanged(): void {
             root.syncLyricsTrack();
+            root.syncActiveArtUrl();
             root.maybeToastNowPlaying();
         }
 
@@ -95,10 +119,23 @@ Singleton {
             root.maybeToastNowPlaying();
         }
 
+        function onMetadataChanged() {
+            root.syncActiveArtUrl();
+        }
+
+        function onTrackArtUrlChanged() {
+            root.syncActiveArtUrl();
+        }
+
+        ignoreUnknownSignals: true
+
         target: root.active
     }
 
-    Component.onCompleted: Qt.callLater(syncLyricsTrack)
+    Component.onCompleted: {
+        Qt.callLater(syncLyricsTrack);
+        Qt.callLater(syncActiveArtUrl);
+    }
 
     PersistentProperties {
         id: props
