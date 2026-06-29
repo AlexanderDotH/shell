@@ -96,12 +96,15 @@ private:
     void trackReply(int reqId, QNetworkReply* reply);
 
     void onPreferredBackendConfigChanged();
+    void onProviderConfigChanged();
     void onLyricsDirChanged();
 
     void loadLyricsMap();
     void persistTrackPrefs();
 
     [[nodiscard]] QString lyricsDir() const;
+    [[nodiscard]] QString netEaseApiBase() const;
+    [[nodiscard]] QUrl netEaseApiUrl(const QString& endpoint) const;
     [[nodiscard]] QString lyricsMapPath() const;
     [[nodiscard]] QString trackKey() const;
     [[nodiscard]] static QString backendKey(LyricsBackend::Backend value);

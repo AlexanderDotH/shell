@@ -59,6 +59,36 @@ constexpr qreal kIndexFudge = 0.1;
     return haystack.contains(needle, Qt::CaseInsensitive);
 }
 
+[[nodiscard]] QStringList netEaseArtistNames(const QJsonObject& song) {
+    const QJsonArray artists = song.value(u"artists"_s).toArray().isEmpty()
+        ? song.value(u"ar"_s).toArray()
+        : song.value(u"artists"_s).toArray();
+
+    QStringList names;
+    names.reserve(artists.size());
+    for (const auto& artist : artists) {
+        const QString name = artist.toObject().value(u"name"_s).toString();
+        if (!name.isEmpty()) {
+            names.append(name);
+        }
+    }
+    return names;
+}
+
+[[nodiscard]] QString netEaseAlbumName(const QJsonObject& song) {
+    const QString legacy = song.value(u"album"_s).toObject().value(u"name"_s).toString();
+    if (!legacy.isEmpty()) {
+        return legacy;
+    }
+    return song.value(u"al"_s).toObject().value(u"name"_s).toString();
+}
+
+[[nodiscard]] qreal netEaseDurationSeconds(const QJsonObject& song) {
+    const qreal value =
+        song.contains(u"duration"_s) ? song.value(u"duration"_s).toDouble() : song.value(u"dt"_s).toDouble();
+    return value > 1000 ? value / 1000.0 : value;
+}
+
 } // namespace
 
 Lyrics::Lyrics(QObject* parent)
@@ -77,6 +107,8 @@ Lyrics::Lyrics(QObject* parent)
 
     QObject::connect(
         svcCfg, &config::ServiceConfig::lyricsBackendChanged, this, &Lyrics::onPreferredBackendConfigChanged);
+    QObject::connect(
+        svcCfg, &config::ServiceConfig::lyricsNetEaseApiBaseChanged, this, &Lyrics::onProviderConfigChanged);
     QObject::connect(paths, &config::UserPaths::lyricsDirChanged, this, &Lyrics::onLyricsDirChanged);
 
     loadLyricsMap();
@@ -572,9 +604,10 @@ void Lyrics::tryNetEase(int reqId) {
     // Reset cookies (LyricsBackend::NetEase rejects requests with stale cookies sometimes)
     m_nam->setCookieJar(new QNetworkCookieJar(m_nam));
 
-    QUrl url(u"https://music.163.com/api/search/get"_s);
+    const bool useApiBase = !netEaseApiBase().isEmpty();
+    QUrl url = useApiBase ? netEaseApiUrl(u"search"_s) : QUrl(u"https://music.163.com/api/search/get"_s);
     QUrlQuery q;
-    q.addQueryItem(u"s"_s, u"%1 %2"_s.arg(m_title, m_artist));
+    q.addQueryItem(useApiBase ? u"keywords"_s : u"s"_s, u"%1 %2"_s.arg(m_title, m_artist));
     q.addQueryItem(u"type"_s, u"1"_s);
     q.addQueryItem(u"limit"_s, u"5"_s);
     url.setQuery(q);
@@ -600,20 +633,15 @@ void Lyrics::tryNetEase(int reqId) {
         LyricCandidate bestCandidate;
         for (const auto& v : songs) {
             const QJsonObject s = v.toObject();
-            const QJsonArray artists = s.value(u"artists"_s).toArray();
+            const QStringList artists = netEaseArtistNames(s);
             if (artists.isEmpty()) {
                 continue;
             }
-            const QString sArtist = artists.first().toObject().value(u"name"_s).toString();
+            const QString sArtist = artists.first();
             if (containsCi(m_artist, sArtist) || containsCi(sArtist, m_artist)) {
-                QStringList artistNames;
-                artistNames.reserve(artists.size());
-                for (const auto& a : artists) {
-                    artistNames.append(a.toObject().value(u"name"_s).toString());
-                }
                 bestCandidate = LyricCandidate(LyricsBackend::NetEase,
                     QString::number(static_cast<qint64>(s.value(u"id"_s).toDouble())), s.value(u"name"_s).toString(),
-                    artistNames.join(u", "_s));
+                    artists.join(u", "_s), netEaseAlbumName(s), netEaseDurationSeconds(s));
                 break;
             }
         }
@@ -669,9 +697,10 @@ void Lyrics::searchLrclibCandidates(int reqId) {
 void Lyrics::searchNetEaseCandidates(int reqId) {
     m_nam->setCookieJar(new QNetworkCookieJar(m_nam));
 
-    QUrl url(u"https://music.163.com/api/search/get"_s);
+    const bool useApiBase = !netEaseApiBase().isEmpty();
+    QUrl url = useApiBase ? netEaseApiUrl(u"search"_s) : QUrl(u"https://music.163.com/api/search/get"_s);
     QUrlQuery q;
-    q.addQueryItem(u"s"_s, u"%1 %2"_s.arg(m_title, m_artist));
+    q.addQueryItem(useApiBase ? u"keywords"_s : u"s"_s, u"%1 %2"_s.arg(m_title, m_artist));
     q.addQueryItem(u"type"_s, u"1"_s);
     q.addQueryItem(u"limit"_s, u"5"_s);
     url.setQuery(q);
@@ -695,15 +724,10 @@ void Lyrics::searchNetEaseCandidates(int reqId) {
         add.reserve(songs.size());
         for (const auto& v : songs) {
             const QJsonObject s = v.toObject();
-            QStringList artistNames;
-            const QJsonArray artists = s.value(u"artists"_s).toArray();
-            artistNames.reserve(artists.size());
-            for (const auto& a : artists) {
-                artistNames.append(a.toObject().value(u"name"_s).toString());
-            }
+            const QStringList artistNames = netEaseArtistNames(s);
             add.append(LyricCandidate(LyricsBackend::NetEase,
                 QString::number(static_cast<qint64>(s.value(u"id"_s).toDouble())), s.value(u"name"_s).toString(),
-                artistNames.join(u", "_s)));
+                artistNames.join(u", "_s), netEaseAlbumName(s), netEaseDurationSeconds(s)));
         }
         appendCandidates(add);
     });
@@ -738,7 +762,7 @@ void Lyrics::fetchLrclibById(const QString& id, int reqId) {
 }
 
 void Lyrics::fetchNetEaseLyricsById(const QString& id, int reqId, const LyricCandidate& candidate) {
-    QUrl url(u"https://music.163.com/api/song/lyric"_s);
+    QUrl url = netEaseApiBase().isEmpty() ? QUrl(u"https://music.163.com/api/song/lyric"_s) : netEaseApiUrl(u"lyric"_s);
     QUrlQuery q;
     q.addQueryItem(u"id"_s, id);
     q.addQueryItem(u"lv"_s, u"1"_s);
@@ -801,6 +825,10 @@ void Lyrics::onPreferredBackendConfigChanged() {
     }
     m_preferredBackend = desired;
     emit preferredBackendChanged();
+    scheduleLoad();
+}
+
+void Lyrics::onProviderConfigChanged() {
     scheduleLoad();
 }
 
@@ -878,6 +906,26 @@ QString Lyrics::lyricsDir() const {
     return dir;
 }
 
+QString Lyrics::netEaseApiBase() const {
+    QString base = config::GlobalConfig::instance()->services()->lyricsNetEaseApiBase().trimmed();
+    while (base.endsWith(QLatin1Char('/'))) {
+        base.chop(1);
+    }
+    return base;
+}
+
+QUrl Lyrics::netEaseApiUrl(const QString& endpoint) const {
+    QString base = netEaseApiBase();
+    if (base.isEmpty()) {
+        return {};
+    }
+    QString path = endpoint;
+    while (path.startsWith(QLatin1Char('/'))) {
+        path.remove(0, 1);
+    }
+    return QUrl(base + QLatin1Char('/') + path);
+}
+
 QString Lyrics::lyricsMapPath() const {
     return stateDir() + u"/lyrics_map.json"_s;
 }
@@ -911,6 +959,9 @@ LyricsBackend::Backend Lyrics::backendFromKey(const QString& key) {
         return LyricsBackend::LRCLIB;
     }
     if (key.compare(u"NetEase"_s, Qt::CaseInsensitive) == 0) {
+        return LyricsBackend::NetEase;
+    }
+    if (key.compare(u"NetEaseV2"_s, Qt::CaseInsensitive) == 0) {
         return LyricsBackend::NetEase;
     }
     return LyricsBackend::Auto;
