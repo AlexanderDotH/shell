@@ -79,5 +79,7 @@ Item {
         shape.shape: MaterialShape.Cookie9Sided
         implicitWidth: Tokens.sizes.dashboard.mediaCoverArtSize
         implicitHeight: Tokens.sizes.dashboard.mediaCoverArtSize
+        width: implicitWidth
+        height: implicitHeight
     }
 }
