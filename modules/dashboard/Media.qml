@@ -16,6 +16,7 @@ Item {
 
     BackgroundShapes {
         anchors.fill: parent
+        accentColour: coverVisualiser.artworkColour
     }
 
     RowLayout {
@@ -24,6 +25,8 @@ Item {
         spacing: Tokens.spacing.extraLarge
 
         CoverVisualiser {
+            id: coverVisualiser
+
             Layout.fillHeight: true
             implicitWidth: Tokens.sizes.dashboard.mediaSectionWidth
         }

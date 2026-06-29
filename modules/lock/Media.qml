@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Caelestia
 import Caelestia.Components
 import Caelestia.Config
 import qs.components
@@ -13,11 +14,22 @@ StyledClippingRect {
 
     required property var lock
 
+    readonly property bool hasArtworkColour: backgroundImage.status === Image.Ready && analyser.luminance > 0.02
+    readonly property color artworkColour: hasArtworkColour ? accentFromArtwork(analyser.dominantColour) : Colours.palette.m3primary
+
+    function accentFromArtwork(colour): color {
+        const saturation = Math.max(0.42, colour.hslSaturation);
+        const lightness = Colours.light ? 0.42 : 0.66;
+        return Qt.hsla(colour.hslHue, saturation, lightness, 1);
+    }
+
     implicitHeight: layout.implicitHeight + layout.anchors.margins * 2
     radius: Tokens.rounding.extraLarge
     color: Colours.tPalette.m3surfaceContainer
 
     FadeImage {
+        id: backgroundImage
+
         anchors.fill: parent
         source: Players.activeArtUrl
 
@@ -31,11 +43,41 @@ StyledClippingRect {
         layer.enabled: true
         opacity: status === Image.Ready ? 1 : 0
 
-        StyledRect {
-            anchors.fill: parent
-            color: Colours.palette.m3surface
-            opacity: 0.7
+        Behavior on opacity {
+            Anim {
+                type: Anim.StandardExtraLarge
+            }
         }
+
+        onSourceChanged: artworkAnalyserUpdate.restart()
+        onStatusChanged: {
+            if (status === Image.Ready)
+                artworkAnalyserUpdate.restart();
+        }
+        onOpacityChanged: {
+            if (status === Image.Ready && opacity >= 0.99)
+                artworkAnalyserUpdate.restart();
+        }
+    }
+
+    ImageAnalyser {
+        id: analyser
+
+        sourceItem: backgroundImage
+        rescaleSize: 96
+    }
+
+    Timer {
+        id: artworkAnalyserUpdate
+
+        interval: 80
+        onTriggered: analyser.requestUpdate()
+    }
+
+    StyledRect {
+        anchors.fill: parent
+        color: Colours.palette.m3surface
+        opacity: backgroundImage.status === Image.Ready ? 0.7 : 0
 
         Behavior on opacity {
             Anim {
@@ -57,7 +99,7 @@ StyledClippingRect {
             Layout.fillWidth: true
             animate: true
             text: (Players.active?.trackTitle ?? qsTr("Nothing playing")) || qsTr("Unknown track")
-            color: Colours.palette.m3primary
+            color: root.artworkColour
             horizontalAlignment: Text.AlignHCenter
             font: Tokens.font.title.medium
             elide: Text.ElideRight
