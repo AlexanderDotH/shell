@@ -28,7 +28,7 @@ class Lyrics : public QObject {
     Q_PROPERTY(caelestia::services::LyricCandidate selectedCandidate READ selectedCandidate WRITE setSelectedCandidate
             NOTIFY selectedCandidateChanged)
     Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)
-    Q_PROPERTY(bool hasLyrics READ hasLyrics NOTIFY lyricsChanged)
+    Q_PROPERTY(bool hasLyrics READ hasLyrics NOTIFY hasLyricsChanged)
     Q_PROPERTY(qreal offset READ offset WRITE setOffset NOTIFY offsetChanged)
     Q_PROPERTY(QString trackArtist READ trackArtist NOTIFY trackChanged)
     Q_PROPERTY(QString trackTitle READ trackTitle NOTIFY trackChanged)
@@ -90,7 +90,7 @@ private:
     void searchNetEaseCandidates(int reqId);
 
     void fetchLrclibById(const QString& id, int reqId);
-    void fetchNetEaseLyricsById(const QString& id, int reqId);
+    void fetchNetEaseLyricsById(const QString& id, int reqId, const LyricCandidate& candidate = {});
 
     QNetworkReply* getJson(const QUrl& url, const QHash<QByteArray, QByteArray>& headers = {});
     void trackReply(int reqId, QNetworkReply* reply);

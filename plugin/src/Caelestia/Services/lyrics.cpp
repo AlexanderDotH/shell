@@ -595,7 +595,7 @@ void Lyrics::tryNetEase(int reqId) {
         const QJsonArray songs = doc.object().value(u"result"_s).toObject().value(u"songs"_s).toArray();
 
         // Find best match by artist substring
-        qint64 bestId = -1;
+        LyricCandidate bestCandidate;
         for (const auto& v : songs) {
             const QJsonObject s = v.toObject();
             const QJsonArray artists = s.value(u"artists"_s).toArray();
@@ -604,18 +604,25 @@ void Lyrics::tryNetEase(int reqId) {
             }
             const QString sArtist = artists.first().toObject().value(u"name"_s).toString();
             if (containsCi(m_artist, sArtist) || containsCi(sArtist, m_artist)) {
-                bestId = static_cast<qint64>(s.value(u"id"_s).toDouble());
+                QStringList artistNames;
+                artistNames.reserve(artists.size());
+                for (const auto& a : artists) {
+                    artistNames.append(a.toObject().value(u"name"_s).toString());
+                }
+                bestCandidate = LyricCandidate(LyricsBackend::NetEase,
+                    QString::number(static_cast<qint64>(s.value(u"id"_s).toDouble())), s.value(u"name"_s).toString(),
+                    artistNames.join(u", "_s));
                 break;
             }
         }
 
-        if (bestId < 0) {
+        if (!bestCandidate.isValid()) {
             qCDebug(lcLyrics) << "netease: no artist match for" << m_artist << "-" << m_title;
             chainNext(LyricsBackend::NetEase, reqId);
             return;
         }
 
-        fetchNetEaseLyricsById(QString::number(bestId), reqId);
+        fetchNetEaseLyricsById(bestCandidate.id(), reqId, bestCandidate);
     });
 }
 
@@ -728,7 +735,7 @@ void Lyrics::fetchLrclibById(const QString& id, int reqId) {
     });
 }
 
-void Lyrics::fetchNetEaseLyricsById(const QString& id, int reqId) {
+void Lyrics::fetchNetEaseLyricsById(const QString& id, int reqId, const LyricCandidate& candidate) {
     QUrl url(u"https://music.163.com/api/song/lyric"_s);
     QUrlQuery q;
     q.addQueryItem(u"id"_s, id);
@@ -740,7 +747,7 @@ void Lyrics::fetchNetEaseLyricsById(const QString& id, int reqId) {
     auto* reply = getJson(url, netEaseHeaders());
     trackReply(reqId, reply);
 
-    QObject::connect(reply, &QNetworkReply::finished, this, [this, reply, reqId, id] {
+    QObject::connect(reply, &QNetworkReply::finished, this, [this, reply, reqId, id, candidate] {
         reply->deleteLater();
         if (reqId != m_currentRequestId) {
             return;
@@ -759,6 +766,14 @@ void Lyrics::fetchNetEaseLyricsById(const QString& id, int reqId) {
         }
         writeCachedLrc(LyricsBackend::NetEase, id, lrc);
         setLines(parseLrc(lrc), LyricsBackend::NetEase);
+        if (candidate.isValid()) {
+            appendCandidates({ candidate });
+            m_selected = candidate;
+            emit selectedCandidateChanged();
+            if (!m_settingFromPrefs) {
+                persistTrackPrefs();
+            }
+        }
         setLoading(false);
     });
 }

@@ -121,6 +121,9 @@ QtObject {
                 Component {
                     BarClock {}
                 }
+                Component {
+                    BarCodexUsage {}
+                }
             }
         },
         Component {
@@ -145,6 +148,9 @@ QtObject {
                 }
                 Component {
                     NotificationsPage {}
+                }
+                Component {
+                    LyricsPage {}
                 }
             }
         },

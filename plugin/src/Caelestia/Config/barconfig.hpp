@@ -30,6 +30,7 @@ class BarPopouts : public ConfigObject {
     CONFIG_PROPERTY(bool, activeWindow, true)
     CONFIG_PROPERTY(bool, tray, true)
     CONFIG_PROPERTY(bool, statusIcons, true)
+    CONFIG_PROPERTY(bool, codexUsage, true)
 
 public:
     explicit BarPopouts(QObject* parent = nullptr)
@@ -123,6 +124,26 @@ public:
         : ConfigObject(parent) {}
 };
 
+class BarCodexUsage : public ConfigObject {
+    Q_OBJECT
+    QML_ANONYMOUS
+
+    CONFIG_PROPERTY(bool, enabled, true)
+    CONFIG_PROPERTY(bool, showFiveHour, true)
+    CONFIG_PROPERTY(bool, showWeekly, true)
+    CONFIG_PROPERTY(bool, showSavings, true)
+    CONFIG_PROPERTY(QString, codexHome)
+    CONFIG_PROPERTY(int, refreshIntervalSeconds, 30)
+    CONFIG_PROPERTY(QString, accountDisplay, u"maskedEmail"_s)
+    CONFIG_PROPERTY(QString, pricingBasis, u"detectedModel"_s)
+    CONFIG_PROPERTY(QString, monthlyWindow, u"calendarMonth"_s)
+    CONFIG_PROPERTY(QString, contextPricingMode, u"auto"_s)
+
+public:
+    explicit BarCodexUsage(QObject* parent = nullptr)
+        : ConfigObject(parent) {}
+};
+
 class BarConfig : public ConfigObject {
     Q_OBJECT
     QML_ANONYMOUS
@@ -137,6 +158,7 @@ class BarConfig : public ConfigObject {
     CONFIG_SUBOBJECT(BarTray, tray)
     CONFIG_SUBOBJECT(BarStatus, status)
     CONFIG_SUBOBJECT(BarClock, clock)
+    CONFIG_SUBOBJECT(BarCodexUsage, codexUsage)
     CONFIG_PROPERTY(QVariantList, entries,
         {
             vmap({ { u"id"_s, u"logo"_s }, { u"enabled"_s, true } }),
@@ -146,6 +168,7 @@ class BarConfig : public ConfigObject {
             vmap({ { u"id"_s, u"spacer"_s }, { u"enabled"_s, true } }),
             vmap({ { u"id"_s, u"tray"_s }, { u"enabled"_s, true } }),
             vmap({ { u"id"_s, u"clock"_s }, { u"enabled"_s, true } }),
+            vmap({ { u"id"_s, u"codexUsage"_s }, { u"enabled"_s, true } }),
             vmap({ { u"id"_s, u"statusIcons"_s }, { u"enabled"_s, true } }),
             vmap({ { u"id"_s, u"power"_s }, { u"enabled"_s, true } }),
         })
@@ -160,7 +183,8 @@ public:
         , m_activeWindow(new BarActiveWindow(this))
         , m_tray(new BarTray(this))
         , m_status(new BarStatus(this))
-        , m_clock(new BarClock(this)) {}
+        , m_clock(new BarClock(this))
+        , m_codexUsage(new BarCodexUsage(this)) {}
 };
 
 } // namespace caelestia::config

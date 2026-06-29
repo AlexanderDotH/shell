@@ -110,6 +110,11 @@ Item {
         }
 
         Popout {
+            name: "codexusage"
+            sourceComponent: CodexUsage {}
+        }
+
+        Popout {
             name: "audio"
             sourceComponent: Audio {
                 popouts: root.popouts

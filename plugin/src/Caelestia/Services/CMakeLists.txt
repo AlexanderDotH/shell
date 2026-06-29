@@ -17,8 +17,10 @@ qml_module(caelestia-services
         storage.cpp
         lyriccandidate.cpp
         lyrics.cpp
+        codexusage.cpp
         sessionmanager.cpp
     LIBRARIES
+        Qt::Sql
         Qt::DBus
         PkgConfig::Pipewire
         PkgConfig::Aubio

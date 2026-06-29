@@ -29,7 +29,7 @@ Item {
     readonly property real lyricSolidness: root.bgEnabled ? Math.max(0, Math.min((root.backgroundOpacity - 0.85) / 0.15, 1)) : 1
     readonly property real maxLyricTextScale: 1.14
     readonly property string lyricFontFamily: "Rubik"
-    readonly property real lyricFontPointSize: Tokens.font.size.extraLarge * 1.15 * root.lyricScale
+    readonly property real lyricFontPointSize: Tokens.font.headline.medium.pointSize * 1.15 * root.lyricScale
     readonly property real lyricHorizontalInset: Math.max(Tokens.padding.large * root.lyricScale, 28 * root.lyricScale)
     readonly property real lyricLineGap: Tokens.spacing.large * 2.7 * lyricScale
     readonly property real lyricRowHeight: lyricMetrics.height * root.maxLyricTextScale + root.lyricLineGap
