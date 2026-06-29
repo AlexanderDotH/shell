@@ -8,14 +8,19 @@ import Caelestia
 import Caelestia.Config
 import Caelestia.Services
 import qs.components.misc
+import qs.utils
 
 Singleton {
     id: root
 
     readonly property list<MprisPlayer> list: Mpris.players.values
     readonly property MprisPlayer active: props.manualActive ?? list.find(p => getIdentity(p) === GlobalConfig.services.defaultPlayer) ?? list[0] ?? null
-    property string activeArtUrl: ""
+    readonly property string artCacheDir: `${Paths.imagecache}/media`
     property alias manualActive: props.manualActive
+    property string activeArtUrl
+    property string pendingArtUrl
+    property string downloadingArtUrl
+    property string downloadingArtPath
 
     function syncLyricsTrack(): void {
         const active = root.active;
@@ -65,14 +70,83 @@ Singleton {
         return "";
     }
 
-    function syncActiveArtUrl(): void {
-        activeArtUrl = getArtUrl(active);
+    function isRemoteArtUrl(url: string): bool {
+        return /^https?:\/\//i.test(url);
+    }
+
+    function hashArtUrl(url: string): string {
+        let h1 = 0xdeadbeef, h2 = 0x41c6ce57, ch;
+        for (let i = 0; i < url.length; i++) {
+            ch = url.charCodeAt(i);
+            h1 = Math.imul(h1 ^ ch, 2654435761);
+            h2 = Math.imul(h2 ^ ch, 1597334677);
+        }
+        h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+        h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+        h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+        h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+        return (h2 >>> 0).toString(16).padStart(8, "0") + (h1 >>> 0).toString(16).padStart(8, "0");
+    }
+
+    function cachedArtPath(url: string): string {
+        return `${artCacheDir}/${hashArtUrl(url)}.jpg`;
+    }
+
+    function updateActiveArtUrl(): void {
+        const artUrl = getArtUrl(active);
+        if (!artUrl) {
+            pendingArtUrl = "";
+            activeArtUrl = "";
+            return;
+        }
+
+        if (!isRemoteArtUrl(artUrl)) {
+            pendingArtUrl = "";
+            activeArtUrl = artUrl;
+            return;
+        }
+
+        pendingArtUrl = artUrl;
+        if (downloadingArtUrl === artUrl && artDownloadProc.running)
+            return;
+
+        const cacheUrl = normaliseArtUrl(cachedArtPath(artUrl));
+        if (activeArtUrl === cacheUrl)
+            return;
+
+        startArtDownload();
+    }
+
+    function startArtDownload(): void {
+        if (!pendingArtUrl || artDownloadProc.running)
+            return;
+
+        downloadingArtUrl = pendingArtUrl;
+        downloadingArtPath = cachedArtPath(downloadingArtUrl);
+        artDownloadProc.command = ["sh", "-c", "mkdir -p \"$1\" && { [ -s \"$2\" ] || { tmp=\"$2.tmp.$$\"; curl -fsSL --globoff --max-time 20 --retry 1 --user-agent \"caelestia-shell\" -o \"$tmp\" \"$3\" && mv \"$tmp\" \"$2\"; }; }", "caelestia-art", artCacheDir, downloadingArtPath, downloadingArtUrl];
+        artDownloadProc.running = true;
+    }
+
+    function finishArtDownload(exitCode: int): void {
+        const completedUrl = downloadingArtUrl;
+        const completedPath = downloadingArtPath;
+        downloadingArtUrl = "";
+        downloadingArtPath = "";
+
+        if (exitCode === 0 && completedUrl === pendingArtUrl) {
+            activeArtUrl = normaliseArtUrl(completedPath);
+        } else if (exitCode !== 0 && completedUrl === pendingArtUrl) {
+            activeArtUrl = completedUrl;
+        }
+
+        if (pendingArtUrl && pendingArtUrl !== completedUrl)
+            Qt.callLater(startArtDownload);
     }
 
     Connections {
         function onPostTrackChanged() {
             root.syncLyricsTrack();
-            root.syncActiveArtUrl();
+            root.updateActiveArtUrl();
 
             if (!GlobalConfig.utilities.toasts.nowPlaying) {
                 return;
@@ -83,27 +157,26 @@ Singleton {
         }
 
         function onMetadataChanged() {
-            root.syncActiveArtUrl();
+            root.updateActiveArtUrl();
         }
 
         function onTrackArtUrlChanged() {
-            root.syncActiveArtUrl();
+            root.updateActiveArtUrl();
         }
 
         ignoreUnknownSignals: true
-
         target: root.active
     }
 
-    onActiveChanged: {
-        Qt.callLater(syncLyricsTrack);
-        Qt.callLater(syncActiveArtUrl);
-    }
+    onActiveChanged: Qt.callLater(() => {
+        syncLyricsTrack();
+        updateActiveArtUrl();
+    })
 
-    Component.onCompleted: {
-        Qt.callLater(syncLyricsTrack);
-        Qt.callLater(syncActiveArtUrl);
-    }
+    Component.onCompleted: Qt.callLater(() => {
+        syncLyricsTrack();
+        updateActiveArtUrl();
+    })
 
     PersistentProperties {
         id: props
@@ -111,6 +184,12 @@ Singleton {
         property MprisPlayer manualActive
 
         reloadableId: "players"
+    }
+
+    Process {
+        id: artDownloadProc
+
+        onExited: code => root.finishArtDownload(code) // qmllint disable signal-handler-parameters
     }
 
     // qmllint disable unresolved-type
