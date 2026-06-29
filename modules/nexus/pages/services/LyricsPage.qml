@@ -30,7 +30,7 @@ PageBase {
         },
         MenuItem {
             text: qsTr("Local")
-            icon: "folder_music"
+            icon: "folder"
         },
         MenuItem {
             text: "LRCLIB"
@@ -134,7 +134,7 @@ PageBase {
     function lyricsBackendIcon(backend: int): string {
         switch (backend) {
         case LyricsBackend.Local:
-            return "folder_music";
+            return "folder";
         case LyricsBackend.LRCLIB:
             return "lyrics";
         case LyricsBackend.NetEase:
@@ -233,11 +233,15 @@ PageBase {
             value: Lyrics.hasLyrics ? qsTr("%1 lines").arg(Lyrics.lyrics.length) : ""
         }
 
-        InfoRow {
-            icon: "folder_music"
+        LyricsTextField {
             label: qsTr("Local folder")
-            subtext: qsTr("Used by the Local provider")
-            value: GlobalConfig.paths.lyricsDir
+            placeholder: "~/Music/Lyrics"
+            leadingIcon: "folder"
+            text: GlobalConfig.paths.lyricsDir
+            onCommitted: value => {
+                GlobalConfig.paths.lyricsDir = value;
+                Lyrics.refresh();
+            }
         }
 
         NavRow {
@@ -246,6 +250,65 @@ PageBase {
             label: qsTr("Refresh lyrics")
             status: root.lyricsBackendStatus()
             onClicked: Lyrics.refresh()
+        }
+
+        SectionHeader {
+            text: qsTr("Provider settings")
+        }
+
+        LyricsTextField {
+            first: true
+            label: qsTr("NetEase API base")
+            placeholder: "https://music.xianqiao.wang/neteaseapiv2"
+            leadingIcon: "cloud"
+            text: GlobalConfig.services.lyricsNetEaseApiBase
+            onCommitted: value => {
+                GlobalConfig.services.lyricsNetEaseApiBase = value;
+                Lyrics.refresh();
+            }
+        }
+
+        LyricsTextField {
+            label: qsTr("Deezer ARL")
+            leadingIcon: "album"
+            password: true
+            text: GlobalConfig.services.lyricsDeezerArl
+            onCommitted: value => {
+                GlobalConfig.services.lyricsDeezerArl = value;
+                Lyrics.refresh();
+            }
+        }
+
+        LyricsTextField {
+            label: qsTr("Spotify access token")
+            leadingIcon: "key"
+            password: true
+            text: GlobalConfig.services.lyricsSpotifyAccessToken
+            onCommitted: value => {
+                GlobalConfig.services.lyricsSpotifyAccessToken = value;
+                Lyrics.refresh();
+            }
+        }
+
+        LyricsTextField {
+            label: qsTr("Spotify client ID")
+            leadingIcon: "badge"
+            text: GlobalConfig.services.lyricsSpotifyClientId
+            onCommitted: value => {
+                GlobalConfig.services.lyricsSpotifyClientId = value;
+                Lyrics.refresh();
+            }
+        }
+
+        LyricsTextField {
+            label: qsTr("Spotify client secret")
+            leadingIcon: "vpn_key"
+            password: true
+            text: GlobalConfig.services.lyricsSpotifyClientSecret
+            onCommitted: value => {
+                GlobalConfig.services.lyricsSpotifyClientSecret = value;
+                Lyrics.refresh();
+            }
         }
 
         SectionHeader {
@@ -312,6 +375,33 @@ PageBase {
                 enabled: GlobalConfig.background.desktopLyrics.enabled
                 last: index === Screens.screens.length - 1
                 onToggled: root.setDesktopLyricsMonitorEnabled(modelData.name, checked)
+            }
+        }
+    }
+
+    component LyricsTextField: M3TextField {
+        id: fieldRoot
+
+        property bool trimValue: true
+        property bool first: false
+
+        signal committed(string value)
+
+        Layout.fillWidth: true
+        Layout.topMargin: first ? 0 : Tokens.spacing.extraSmall
+        inputMethodHints: Qt.ImhNoPredictiveText
+
+        function commit(): void {
+            const value = trimValue ? text.trim() : text;
+            fieldRoot.committed(value);
+        }
+
+        onAccepted: commit()
+
+        Connections {
+            target: fieldRoot.field
+            function onEditingFinished(): void {
+                fieldRoot.commit();
             }
         }
     }
