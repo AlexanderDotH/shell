@@ -69,7 +69,7 @@ Item {
                     opacity: root.animateEntrance ? 0 : 1
                     text: root.message
                     color: Colours.palette.m3onSurfaceVariant
-                    font.pointSize: Tokens.font.size.normal
+                    font: Tokens.font.body.medium
                 }
 
                 CircularIndicator {
@@ -78,7 +78,7 @@ Item {
                     Layout.alignment: Qt.AlignHCenter
                     opacity: root.animateEntrance ? 0 : 1
                     running: root.indicatorRunning
-                    implicitSize: Tokens.font.size.normal * 3
+                    implicitSize: Tokens.font.body.medium.pointSize * 3
                     fgColour: Colours.palette.m3primary
                     bgColour: Colours.palette.m3secondaryContainer
                 }

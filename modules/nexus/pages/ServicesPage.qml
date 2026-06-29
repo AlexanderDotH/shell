@@ -10,22 +10,6 @@ import qs.modules.nexus.common
 PageBase {
     id: root
 
-    // Lyrics backends, ordered to match LyricsBackend::Backend (Auto, Local, LRCLIB, NetEase)
-    readonly property list<MenuItem> lyricsItems: [
-        MenuItem {
-            text: qsTr("Auto")
-        },
-        MenuItem {
-            text: "Local"
-        },
-        MenuItem {
-            text: "LRCLIB"
-        },
-        MenuItem {
-            text: "NetEase"
-        }
-    ]
-
     // GPU options + the config string each maps to (see Gpu::parseType)
     readonly property list<MenuItem> gpuItems: [
         MenuItem {
@@ -52,6 +36,14 @@ PageBase {
         if (u === "GENERIC")
             return 2;
         return 3; // None
+    }
+
+    function lyricsStatus(): string {
+        if (Lyrics.loading)
+            return qsTr("Loading via %1").arg(LyricsBackend.toString(Lyrics.backend));
+        if (Lyrics.hasLyrics)
+            return qsTr("Using %1").arg(LyricsBackend.toString(Lyrics.backend));
+        return qsTr("Provider: %1").arg(LyricsBackend.toString(Lyrics.preferredBackend));
     }
 
     title: qsTr("Services")
@@ -134,13 +126,12 @@ PageBase {
             text: qsTr("Media & lyrics")
         }
 
-        SelectRow {
+        NavRow {
             first: true
-            label: qsTr("Lyrics backend")
-            subtext: qsTr("Source used to fetch synced lyrics")
-            menuItems: root.lyricsItems
-            active: root.lyricsItems[Lyrics.preferredBackend] ?? root.lyricsItems[0]
-            onSelected: item => Lyrics.preferredBackend = root.lyricsItems.indexOf(item)
+            icon: "lyrics"
+            label: qsTr("Lyrics")
+            status: root.lyricsStatus()
+            onClicked: root.nState.openSubPage(2)
         }
 
         SelectRow {

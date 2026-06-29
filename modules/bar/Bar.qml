@@ -72,6 +72,10 @@ ColumnLayout {
             popouts.currentName = id.toLowerCase();
             popouts.currentCenter = (ch.item as Item).mapToItem(root, 0, (ch.item as Item).implicitHeight / 2).y ?? 0;
             popouts.hasCurrent = true;
+        } else if (id === "codexUsage" && Config.bar.popouts.codexUsage) {
+            popouts.currentName = "codexusage";
+            popouts.currentCenter = (ch.item as Item).mapToItem(root, 0, (ch.item as Item).implicitHeight / 2).y ?? 0;
+            popouts.hasCurrent = true;
         }
     }
 
@@ -163,6 +167,14 @@ ColumnLayout {
                     Clock {
                         objectName: "taskbarClock"
                     }
+                }
+            }
+            DelegateChoice {
+                roleValue: "codexUsage"
+                delegate: WrappedLoader {
+                    visible: !root.fullscreen
+                    loadActive: Config.bar.codexUsage.enabled
+                    sourceComponent: CodexUsage {}
                 }
             }
             DelegateChoice {
