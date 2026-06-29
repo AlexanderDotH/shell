@@ -12,6 +12,12 @@ QString LyricsBackend::toString(Backend b) {
         return QStringLiteral("LRCLIB");
     case LyricsBackend::NetEase:
         return QStringLiteral("NetEase");
+    case LyricsBackend::Deezer:
+        return QStringLiteral("Deezer");
+    case LyricsBackend::Musixmatch:
+        return QStringLiteral("Musixmatch");
+    case LyricsBackend::SpicyLyrics:
+        return QStringLiteral("Spicy Lyrics");
     default:
         return QStringLiteral("Unknown");
     }

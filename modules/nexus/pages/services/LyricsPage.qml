@@ -15,23 +15,42 @@ PageBase {
     title: qsTr("Lyrics")
     isSubPage: true
 
-    // Lyrics backends, ordered to match LyricsBackend::Backend (Auto, Local, LRCLIB, NetEase)
+    // Online fallback order in Auto: LRCLIB -> Deezer -> Musixmatch -> Spicy Lyrics -> NetEase
     readonly property list<MenuItem> lyricsBackendItems: [
         MenuItem {
             text: qsTr("Auto")
             icon: "auto_awesome"
+            value: LyricsBackend.Auto
         },
         MenuItem {
             text: qsTr("Local")
             icon: "folder"
+            value: LyricsBackend.Local
         },
         MenuItem {
             text: "LRCLIB"
             icon: "lyrics"
+            value: LyricsBackend.LRCLIB
+        },
+        MenuItem {
+            text: "Deezer"
+            icon: "album"
+            value: LyricsBackend.Deezer
+        },
+        MenuItem {
+            text: "Musixmatch"
+            icon: "lyrics"
+            value: LyricsBackend.Musixmatch
+        },
+        MenuItem {
+            text: "Spicy Lyrics"
+            icon: "graphic_eq"
+            value: LyricsBackend.SpicyLyrics
         },
         MenuItem {
             text: "NetEase"
             icon: "cloud"
+            value: LyricsBackend.NetEase
         }
     ]
 
@@ -96,12 +115,20 @@ PageBase {
         });
     }
 
-    function setLyricsBackend(index: int): void {
-        if (index < 0)
+    function setLyricsBackend(backend: int): void {
+        if (backend < 0)
             return;
 
-        Lyrics.preferredBackend = index;
+        Lyrics.preferredBackend = backend;
         Lyrics.refresh();
+    }
+
+    function activeLyricsBackendItem(): MenuItem {
+        for (const item of lyricsBackendItems) {
+            if (item.value === Lyrics.preferredBackend)
+                return item;
+        }
+        return lyricsBackendItems[0];
     }
 
     function normalizedValue(value: real, from: real, to: real): real {
@@ -132,6 +159,12 @@ PageBase {
             return "lyrics";
         case LyricsBackend.NetEase:
             return "cloud";
+        case LyricsBackend.Deezer:
+            return "album";
+        case LyricsBackend.Musixmatch:
+            return "lyrics";
+        case LyricsBackend.SpicyLyrics:
+            return "graphic_eq";
         case LyricsBackend.Auto:
         default:
             return "auto_awesome";
@@ -202,8 +235,8 @@ PageBase {
             label: qsTr("Provider")
             subtext: root.lyricsBackendStatus()
             menuItems: root.lyricsBackendItems
-            active: root.lyricsBackendItems[Lyrics.preferredBackend] ?? root.lyricsBackendItems[0]
-            onSelected: item => root.setLyricsBackend(root.lyricsBackendItems.indexOf(item))
+            active: root.activeLyricsBackendItem()
+            onSelected: item => root.setLyricsBackend(item.value)
         }
 
         SelectRow {
