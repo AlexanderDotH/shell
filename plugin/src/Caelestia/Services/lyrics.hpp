@@ -6,6 +6,8 @@
 #include <qjsonobject.h>
 #include <qnetworkaccessmanager.h>
 #include <qnetworkreply.h>
+#include <qpointer.h>
+#include <qset.h>
 
 #include <functional>
 
@@ -82,6 +84,11 @@ private:
     void doLoad();
     void cancelInFlight();
     int newRequestId();
+    [[nodiscard]] bool asyncProvidersEnabled() const;
+    void startAsyncAuto(int reqId);
+    void clearAsyncWorkers();
+    void handleAsyncWorkerDone(Lyrics* worker, int reqId);
+    void finishAsyncAuto(int reqId);
 
     void tryLocal(int reqId);
     void tryLrclib(int reqId);
@@ -163,6 +170,10 @@ private:
 
     int m_currentRequestId = 0;
     QHash<int, QList<QPointer<QNetworkReply>>> m_pendingReplies;
+    QList<Lyrics*> m_asyncWorkers;
+    QSet<Lyrics*> m_finishedAsyncWorkers;
+    int m_asyncRequestId = 0;
+    bool m_asyncWorker = false;
 
     QString m_musixmatchDesktopGuid;
     QString m_musixmatchDesktopUserToken;

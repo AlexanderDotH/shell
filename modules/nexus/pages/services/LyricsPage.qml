@@ -239,6 +239,16 @@ PageBase {
             onSelected: item => root.setLyricsBackend(item.value)
         }
 
+        ToggleRow {
+            text: qsTr("Async Auto search")
+            subtext: qsTr("Wait for every online provider, then keep the first in order")
+            checked: GlobalConfig.services.lyricsAsyncProviders
+            onToggled: checked => {
+                GlobalConfig.services.lyricsAsyncProviders = checked;
+                Lyrics.refresh();
+            }
+        }
+
         SelectRow {
             label: qsTr("Match")
             subtext: root.lyricsCandidateStatus(lyricsCandidateVariants.instances)

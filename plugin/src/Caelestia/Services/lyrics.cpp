@@ -37,6 +37,17 @@ const QString kMusixmatchDesktopApiRoot = u"https://apic-desktop.musixmatch.com/
 const QString kMusixmatchDesktopAppId = u"web-desktop-app-v1.0"_s;
 const QString kMusixmatchFallbackSignKey = u"741941edc264ea6293cb9a6458103b4eda3ac8ed"_s;
 
+[[nodiscard]] const QList<LyricsBackend::Backend>& onlineAutoProviderOrder() {
+    static const QList<LyricsBackend::Backend> order = {
+        LyricsBackend::LRCLIB,
+        LyricsBackend::Deezer,
+        LyricsBackend::Musixmatch,
+        LyricsBackend::SpicyLyrics,
+        LyricsBackend::NetEase,
+    };
+    return order;
+}
+
 [[nodiscard]] const QHash<QByteArray, QByteArray>& netEaseHeaders() {
     static const QHash<QByteArray, QByteArray> h = {
         { "User-Agent"_ba, "Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Gecko/20100101 Firefox/120.0"_ba },
@@ -89,7 +100,7 @@ const QString kMusixmatchFallbackSignKey = u"741941edc264ea6293cb9a6458103b4eda3
 [[nodiscard]] QString simplifyForMatch(QString text) {
     static const QRegularExpression featuredRegex(u"\\s*[\\(\\[]\\s*(?:feat\\.?|ft\\.?|featuring)\\s+[^\\)\\]]+[\\)\\]]\\s*"_s,
         QRegularExpression::CaseInsensitiveOption);
-    static const QRegularExpression combiningRegex(u"[\\u0300-\\u036f]"_s);
+    static const QRegularExpression combiningRegex(u"\\p{Mn}"_s);
     static const QRegularExpression whitespaceRegex(u"\\s+"_s);
 
     text = text.toLower();
@@ -552,6 +563,8 @@ Lyrics::Lyrics(QObject* parent)
     QObject::connect(
         svcCfg, &config::ServiceConfig::lyricsBackendChanged, this, &Lyrics::onPreferredBackendConfigChanged);
     QObject::connect(
+        svcCfg, &config::ServiceConfig::lyricsAsyncProvidersChanged, this, &Lyrics::onProviderConfigChanged);
+    QObject::connect(
         svcCfg, &config::ServiceConfig::lyricsNetEaseApiBaseChanged, this, &Lyrics::onProviderConfigChanged);
     QObject::connect(svcCfg, &config::ServiceConfig::lyricsDeezerArlChanged, this, &Lyrics::onProviderConfigChanged);
     QObject::connect(
@@ -830,7 +843,119 @@ int Lyrics::newRequestId() {
     return ++m_currentRequestId;
 }
 
+bool Lyrics::asyncProvidersEnabled() const {
+    return config::GlobalConfig::instance()->services()->lyricsAsyncProviders();
+}
+
+void Lyrics::startAsyncAuto(int reqId) {
+    if (reqId != m_currentRequestId) {
+        return;
+    }
+
+    setBackend(LyricsBackend::Auto);
+    clearAsyncWorkers();
+
+    m_asyncRequestId = reqId;
+    for (const auto backend : onlineAutoProviderOrder()) {
+        auto* worker = new Lyrics(this);
+        worker->m_asyncWorker = true;
+        worker->m_settingFromPrefs = true;
+        worker->m_preferredBackend = backend;
+        worker->m_artist = m_artist;
+        worker->m_title = m_title;
+        worker->m_album = m_album;
+        worker->m_duration = m_duration;
+
+        m_asyncWorkers.append(worker);
+        QObject::connect(worker, &Lyrics::loadingChanged, this, [this, worker, reqId] {
+            if (worker->loading()) {
+                return;
+            }
+            handleAsyncWorkerDone(worker, reqId);
+        });
+    }
+
+    for (auto* worker : std::as_const(m_asyncWorkers)) {
+        if (worker) {
+            worker->doLoad();
+        }
+    }
+}
+
+void Lyrics::clearAsyncWorkers() {
+    if (m_asyncWorkers.isEmpty()) {
+        return;
+    }
+
+    for (auto* worker : std::as_const(m_asyncWorkers)) {
+        if (!worker) {
+            continue;
+        }
+        QObject::disconnect(worker, nullptr, this, nullptr);
+        worker->m_loadDebounce->stop();
+        worker->cancelInFlight();
+        worker->deleteLater();
+    }
+
+    m_asyncWorkers.clear();
+    m_finishedAsyncWorkers.clear();
+    m_asyncRequestId = 0;
+}
+
+void Lyrics::handleAsyncWorkerDone(Lyrics* worker, int reqId) {
+    if (reqId != m_currentRequestId || reqId != m_asyncRequestId || !m_asyncWorkers.contains(worker)) {
+        return;
+    }
+    if (m_finishedAsyncWorkers.contains(worker)) {
+        return;
+    }
+
+    m_finishedAsyncWorkers.insert(worker);
+    if (m_finishedAsyncWorkers.size() < m_asyncWorkers.size()) {
+        return;
+    }
+
+    finishAsyncAuto(reqId);
+}
+
+void Lyrics::finishAsyncAuto(int reqId) {
+    if (reqId != m_currentRequestId || reqId != m_asyncRequestId) {
+        return;
+    }
+
+    Lyrics* winner = nullptr;
+    for (auto* worker : std::as_const(m_asyncWorkers)) {
+        if (worker && worker->m_hasLyrics && !worker->m_lines.isEmpty()) {
+            winner = worker;
+            break;
+        }
+    }
+
+    if (winner) {
+        const auto lines = winner->m_lines;
+        const auto backend = winner->m_backend;
+        const auto candidates = winner->m_candidates;
+        const auto selected = winner->m_selected;
+
+        appendCandidates(candidates);
+        setLines(lines, backend);
+        if (selected.isValid()) {
+            appendCandidates({ selected });
+            m_selected = selected;
+            emit selectedCandidateChanged();
+            persistTrackPrefs();
+        }
+    }
+
+    setLoading(false);
+    clearAsyncWorkers();
+}
+
 void Lyrics::cancelInFlight() {
+    ++m_currentRequestId;
+    m_loadDebounce->stop();
+    clearAsyncWorkers();
+
     for (auto it = m_pendingReplies.begin(); it != m_pendingReplies.end(); ++it) {
         for (auto& ptr : it.value()) {
             if (auto* reply = ptr.data()) {
@@ -851,6 +976,7 @@ void Lyrics::trackReply(int reqId, QNetworkReply* reply) {
 
 void Lyrics::doLoad() {
     if (m_artist.isEmpty() && m_title.isEmpty()) {
+        cancelInFlight();
         clearLines();
         clearCandidates();
         setLoading(false);
@@ -864,31 +990,34 @@ void Lyrics::doLoad() {
     clearLines();
     clearCandidates();
 
-    // Restore per-track prefs (offset, last-selected backend/id)
-    m_settingFromPrefs = true;
-    const QJsonObject saved = m_lyricsMap.value(trackKey()).toObject();
-    setOffset(saved.value(u"offset"_s).toDouble(0.0));
     LyricCandidate restored;
-    const QString savedBackendKey = saved.value(u"backend"_s).toString();
-    const QString savedId = saved.value(u"id"_s).toString();
-    if (!savedBackendKey.isEmpty() && !savedId.isEmpty()) {
-        restored = LyricCandidate(backendFromKey(savedBackendKey), savedId, m_title, m_artist, m_album, m_duration);
-    }
-    m_settingFromPrefs = false;
 
-    // Always populate online candidates for the picker, regardless of preferred backend
-    searchLrclibCandidates(reqId);
-    searchDeezerCandidates(reqId);
-    searchMusixmatchCandidates(reqId);
-    searchSpicyLyricsCandidates(reqId);
-    searchNetEaseCandidates(reqId);
-
-    if (restored.isValid()) {
-        // Honor saved selection for this track
+    if (!m_asyncWorker) {
+        // Restore per-track prefs (offset, last-selected backend/id)
         m_settingFromPrefs = true;
-        setSelectedCandidate(restored);
+        const QJsonObject saved = m_lyricsMap.value(trackKey()).toObject();
+        setOffset(saved.value(u"offset"_s).toDouble(0.0));
+        const QString savedBackendKey = saved.value(u"backend"_s).toString();
+        const QString savedId = saved.value(u"id"_s).toString();
+        if (!savedBackendKey.isEmpty() && !savedId.isEmpty()) {
+            restored = LyricCandidate(backendFromKey(savedBackendKey), savedId, m_title, m_artist, m_album, m_duration);
+        }
         m_settingFromPrefs = false;
-        return;
+
+        // Always populate online candidates for the picker, regardless of preferred backend
+        searchLrclibCandidates(reqId);
+        searchDeezerCandidates(reqId);
+        searchMusixmatchCandidates(reqId);
+        searchSpicyLyricsCandidates(reqId);
+        searchNetEaseCandidates(reqId);
+
+        if (restored.isValid()) {
+            // Honor saved selection for this track
+            m_settingFromPrefs = true;
+            setSelectedCandidate(restored);
+            m_settingFromPrefs = false;
+            return;
+        }
     }
 
     // Primary attempt by preferred backend
@@ -913,7 +1042,11 @@ void Lyrics::doLoad() {
         break;
     case LyricsBackend::Auto:
     default:
-        tryLrclib(reqId);
+        if (!m_asyncWorker && asyncProvidersEnabled()) {
+            startAsyncAuto(reqId);
+        } else {
+            tryLrclib(reqId);
+        }
         break;
     }
 }
