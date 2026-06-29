@@ -53,12 +53,12 @@ Singleton {
     function getArtUrl(player: MprisPlayer): string {
         if (!player)
             return "";
-        if (player.trackArtUrl)
-            return normaliseArtUrl(player.trackArtUrl);
-
         const metadataArt = normaliseArtUrl(player.metadata["mpris:artUrl"]);
         if (metadataArt)
             return metadataArt;
+
+        if (player.trackArtUrl)
+            return normaliseArtUrl(player.trackArtUrl);
 
         const url = player.metadata["xesam:url"] ?? "";
         if (url.includes("youtube.com/") || url.includes("youtu.be/")) {

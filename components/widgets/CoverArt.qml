@@ -47,12 +47,13 @@ Item {
 
         anchors.fill: parent
         layer.enabled: true
-        opacity: root.fallbackColour.a
+        opacity: 1
 
         MaterialShape {
             id: shape
 
-            implicitSize: root.width
+            anchors.fill: parent
+            implicitSize: Math.min(root.width, root.height)
             shape: MaterialShape.Cookie12Sided
             color: Qt.alpha(root.artworkColour, 1)
 

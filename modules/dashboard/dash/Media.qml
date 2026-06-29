@@ -68,6 +68,7 @@ Item {
         anchors.right: parent.right
         anchors.margins: Tokens.padding.medium + root.arcCoverGap + prog.thickness
         implicitHeight: width
+        height: width
     }
 
     StyledText {
