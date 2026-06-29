@@ -48,7 +48,7 @@ Item {
         anchors.centerIn: cover
         implicitSize: cover.width + root.arcCoverGap + thickness * 2
 
-        fgColour: Colours.palette.m3primary
+        fgColour: cover.artworkColour
         strokeWidth: Tokens.sizes.dashboard.mediaProgressThickness
         startAngle: -90 - sweepAngle / 2
         sweepAngle: Tokens.sizes.dashboard.mediaProgressSweep
@@ -80,7 +80,7 @@ Item {
         animate: true
         horizontalAlignment: Text.AlignHCenter
         text: (Players.active?.trackTitle ?? qsTr("No media")) || qsTr("Unknown title")
-        color: Colours.palette.m3primary
+        color: cover.artworkColour
         font: Tokens.font.title.small
 
         width: parent.implicitWidth - Tokens.padding.extraLargeIncreased

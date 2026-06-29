@@ -3,6 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects
 import M3Shapes
+import Caelestia
 import Caelestia.Config
 import qs.components
 import qs.components.controls
@@ -14,17 +15,27 @@ Item {
     id: root
 
     readonly property alias shape: shape
+    readonly property bool hasArtworkColour: image.status === Image.Ready && analyser.luminance > 0.02
+    readonly property color rawArtworkColour: analyser.dominantColour
+    readonly property color artworkColour: hasArtworkColour ? root.accentFromArtwork(rawArtworkColour) : fallbackColour
+    readonly property color onArtworkColour: Colours.on(artworkColour)
 
     property bool hadPrevious
     property color fallbackColour: Colours.layer(Colours.palette.m3surfaceContainerHighest, 2)
+
+    function accentFromArtwork(colour): color {
+        const saturation = Math.max(0.42, colour.hslSaturation);
+        const lightness = Colours.light ? 0.42 : 0.66;
+        return Qt.hsla(colour.hslHue, saturation, lightness, 1);
+    }
 
     // Slight glow to separate from bg
     layer.enabled: true
     layer.effect: MultiEffect {
         shadowEnabled: true
         blurMax: 1
-        shadowColor: Colours.palette.m3outline
-        shadowOpacity: 0.3
+        shadowColor: root.hasArtworkColour ? root.artworkColour : Colours.palette.m3outline
+        shadowOpacity: root.hasArtworkColour ? 0.55 : 0.3
     }
 
     Behavior on fallbackColour {
@@ -43,7 +54,7 @@ Item {
 
             implicitSize: root.width
             shape: MaterialShape.Cookie12Sided
-            color: Qt.alpha(root.fallbackColour, 1)
+            color: Qt.alpha(root.artworkColour, 1)
 
             Anim on rotation {
                 running: true
@@ -103,5 +114,29 @@ Item {
         layer.effect: Mask {
             maskSource: shapeWrapper
         }
+
+        onSourceChanged: artworkAnalyserUpdate.restart()
+        onStatusChanged: {
+            if (status === Image.Ready)
+                artworkAnalyserUpdate.restart();
+        }
+        onOpacityChanged: {
+            if (status === Image.Ready && opacity >= 0.99)
+                artworkAnalyserUpdate.restart();
+        }
+    }
+
+    ImageAnalyser {
+        id: analyser
+
+        sourceItem: image
+        rescaleSize: 96
+    }
+
+    Timer {
+        id: artworkAnalyserUpdate
+
+        interval: 80
+        onTriggered: analyser.requestUpdate()
     }
 }
