@@ -15,13 +15,6 @@ PageBase {
     title: qsTr("Lyrics")
     isSubPage: true
 
-    readonly property var lyricsTrackBinding: {
-        const player = Players.active;
-        if (player)
-            Lyrics.setTrack(player.trackArtist, player.trackTitle, player.trackAlbum, player.length);
-        else
-            Lyrics.clearTrack();
-    }
     // Lyrics backends, ordered to match LyricsBackend::Backend (Auto, Local, LRCLIB, NetEase)
     readonly property list<MenuItem> lyricsBackendItems: [
         MenuItem {

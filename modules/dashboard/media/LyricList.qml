@@ -14,15 +14,6 @@ import qs.services
 Item {
     id: root
 
-    // Funny binding hack to make lyrics update
-    readonly property var _: {
-        const p = Players.active;
-        if (p)
-            Lyrics.setTrack(p.trackArtist, p.trackTitle, p.trackAlbum, p.length);
-        else
-            Lyrics.clearTrack();
-    }
-
     readonly property real fadeAmount: 0.1
     property bool flag
     property list<string> lyricList: Lyrics.lyrics

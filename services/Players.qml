@@ -6,6 +6,7 @@ import Quickshell.Io
 import Quickshell.Services.Mpris
 import Caelestia
 import Caelestia.Config
+import Caelestia.Services
 import qs.components.misc
 
 Singleton {
@@ -17,6 +18,15 @@ Singleton {
 
     // Dedup key for progressive metadata (e.g. mpv-mpris/yt-dlp player fills title then artist later).
     property string lastNowPlayingKey: ""
+
+    function syncLyricsTrack(): void {
+        const active = root.active;
+        if (active && (active.trackArtist || active.trackTitle)) {
+            Lyrics.setTrack(active.trackArtist, active.trackTitle, active.trackAlbum, active.length);
+        } else {
+            Lyrics.clearTrack();
+        }
+    }
 
     function getIdentity(player: MprisPlayer): string {
         if (!player)
@@ -64,23 +74,31 @@ Singleton {
         Toaster.toast(qsTr("Now Playing"), qsTr("%1 - %2").arg(artist).arg(title), "music_note");
     }
 
-    onActiveChanged: lastNowPlayingKey = ""
+    onActiveChanged: {
+        lastNowPlayingKey = "";
+        Qt.callLater(syncLyricsTrack);
+    }
 
     Connections {
         function onPostTrackChanged(): void {
+            root.syncLyricsTrack();
             root.maybeToastNowPlaying();
         }
 
         function onTrackTitleChanged(): void {
+            root.syncLyricsTrack();
             root.maybeToastNowPlaying();
         }
 
         function onTrackArtistChanged(): void {
+            root.syncLyricsTrack();
             root.maybeToastNowPlaying();
         }
 
         target: root.active
     }
+
+    Component.onCompleted: Qt.callLater(syncLyricsTrack)
 
     PersistentProperties {
         id: props
