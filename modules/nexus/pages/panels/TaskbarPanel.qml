@@ -94,7 +94,7 @@ PageBase {
             icon: "code"
             label: qsTr("Codex usage")
             status: qsTr("Limits, tokens, API comparison")
-            onClicked: root.nState.openSubPage(10)
+            onClicked: root.nState.openSubPage(11)
         }
 
         // Scroll actions

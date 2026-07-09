@@ -17,6 +17,7 @@ qml_module(caelestia-services
         storage.cpp
         lyriccandidate.cpp
         lyrics.cpp
+        codexpricing.cpp
         codexusage.cpp
         sessionmanager.cpp
     LIBRARIES

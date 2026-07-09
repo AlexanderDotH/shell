@@ -11,8 +11,9 @@ import qs.services
 ColumnLayout {
     id: root
 
-    spacing: Tokens.spacing.medium
-    width: 320
+    readonly property QtObject codexUsageRef: CServices.ServiceRef {
+        service: CServices.CodexUsage
+    }
 
     function formatTokens(value: var): string {
         const n = Number(value ?? 0);
@@ -48,9 +49,8 @@ ColumnLayout {
         return parts.join("  |  ");
     }
 
-    readonly property QtObject codexUsageRef: CServices.ServiceRef {
-        service: CServices.CodexUsage
-    }
+    spacing: Tokens.spacing.medium
+    width: 320
 
     RowLayout {
         Layout.fillWidth: true
@@ -201,24 +201,29 @@ ColumnLayout {
                 font: Tokens.font.label.small
                 wrapMode: Text.WordWrap
             }
-        }
-    }
 
-    ColumnLayout {
-        Layout.fillWidth: true
-        spacing: Tokens.spacing.extraSmall
-
-        Repeater {
-            model: ScriptModel {
-                values: CServices.CodexUsage.modelCostBreakdown
+            StyledText {
+                Layout.fillWidth: true
+                text: qsTr("Model breakdown")
+                color: Colours.palette.m3onSecondaryContainer
+                font: Tokens.font.label.builders.small.weight(Font.Medium).build()
             }
 
-            delegate: DetailRow {
-                required property var modelData
+            Repeater {
+                model: ScriptModel {
+                    values: CServices.CodexUsage.modelCostBreakdown
+                }
 
-                label: modelData.mapped ? `${modelData.model} -> ${modelData.pricedModel}` : modelData.model
-                value: modelData.priced ? modelData.dollarsText : qsTr("Unpriced")
+                delegate: DetailRow {
+                    required property var modelData
+
+                    label: modelData.mapped ? `${modelData.model} -> ${modelData.pricedModel}` : modelData.model
+                    value: modelData.priced ? modelData.dollarsText : qsTr("Unpriced")
+                    labelColour: Qt.alpha(Colours.palette.m3onSecondaryContainer, 0.78)
+                    valueColour: Colours.palette.m3onSecondaryContainer
+                }
             }
+
         }
     }
 
@@ -286,6 +291,8 @@ ColumnLayout {
     component DetailRow: RowLayout {
         required property string label
         required property string value
+        property color labelColour: Colours.palette.m3outline
+        property color valueColour: Colours.palette.m3onSurface
 
         Layout.fillWidth: true
         spacing: Tokens.spacing.medium
@@ -293,13 +300,14 @@ ColumnLayout {
         StyledText {
             Layout.fillWidth: true
             text: parent.label
-            color: Colours.palette.m3outline
+            color: parent.labelColour
             font: Tokens.font.label.small
             elide: Text.ElideRight
         }
 
         StyledText {
             text: parent.value
+            color: parent.valueColour
             font: Tokens.font.label.builders.small.weight(Font.Medium).build()
             elide: Text.ElideRight
         }

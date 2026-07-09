@@ -1,11 +1,11 @@
 #include "codexusage.hpp"
+#include "codexpricing.hpp"
 
 #include "../Config/barconfig.hpp"
 #include "../Config/config.hpp"
 
 #include <algorithm>
 #include <cmath>
-#include <optional>
 #include <qdir.h>
 #include <qfile.h>
 #include <qfileinfo.h>
@@ -22,17 +22,6 @@
 namespace {
 
 constexpr qint64 kWeeklyWindowSeconds = 7 * 24 * 60 * 60;
-constexpr qreal kPerMillion = 1'000'000.0;
-
-struct Pricing {
-    QString pricedModel;
-    qreal input = 0.0;
-    qreal cachedInput = 0.0;
-    qreal output = 0.0;
-    bool hasCachedInput = true;
-    bool mapped = false;
-};
-
 qint64 jsonLong(const QJsonValue& value) {
     if (value.isDouble()) {
         return qRound64(value.toDouble());
@@ -116,50 +105,6 @@ QString firstDefaultOrgTitle(const QJsonArray& organizations) {
         }
     }
     return first;
-}
-
-QString normalizeModel(QString model) {
-    model = model.trimmed().toLower();
-    const auto paren = model.indexOf(QStringLiteral(" ("));
-    if (paren > 0) {
-        model = model.left(paren);
-    }
-    return model;
-}
-
-std::optional<Pricing> pricingForModel(const QString& rawModel) {
-    const QString model = normalizeModel(rawModel);
-
-    static const QHash<QString, Pricing> table {
-        { QStringLiteral("gpt-5.5"), { QStringLiteral("gpt-5.5"), 5.0, 0.5, 30.0 } },
-        { QStringLiteral("gpt-5.5-pro"), { QStringLiteral("gpt-5.5-pro"), 30.0, 0.0, 180.0, false } },
-        { QStringLiteral("gpt-5.4"), { QStringLiteral("gpt-5.4"), 2.5, 0.25, 15.0 } },
-        { QStringLiteral("gpt-5.4-mini"), { QStringLiteral("gpt-5.4-mini"), 0.75, 0.075, 4.5 } },
-        { QStringLiteral("gpt-5.4-nano"), { QStringLiteral("gpt-5.4-nano"), 0.2, 0.02, 1.25 } },
-        { QStringLiteral("gpt-5.4-pro"), { QStringLiteral("gpt-5.4-pro"), 30.0, 0.0, 180.0, false } },
-        { QStringLiteral("gpt-5.3-codex"), { QStringLiteral("gpt-5.3-codex"), 1.75, 0.175, 14.0 } },
-        { QStringLiteral("gpt-5.2-codex"), { QStringLiteral("gpt-5.2-codex"), 1.75, 0.175, 14.0 } },
-        { QStringLiteral("gpt-5.1-codex-max"), { QStringLiteral("gpt-5.1-codex-max"), 1.25, 0.125, 10.0 } },
-        { QStringLiteral("gpt-5.1-codex"), { QStringLiteral("gpt-5.1-codex"), 1.25, 0.125, 10.0 } },
-        { QStringLiteral("gpt-5-codex"), { QStringLiteral("gpt-5-codex"), 1.25, 0.125, 10.0 } },
-        { QStringLiteral("gpt-5.1-codex-mini"), { QStringLiteral("gpt-5.1-codex-mini"), 0.25, 0.025, 2.0 } },
-        { QStringLiteral("codex-mini-latest"), { QStringLiteral("codex-mini-latest"), 1.5, 0.375, 6.0 } },
-        { QStringLiteral("gpt-5.2"), { QStringLiteral("gpt-5.2"), 1.75, 0.175, 14.0 } },
-        { QStringLiteral("gpt-5.1"), { QStringLiteral("gpt-5.1"), 1.25, 0.125, 10.0 } },
-        { QStringLiteral("gpt-5"), { QStringLiteral("gpt-5"), 1.25, 0.125, 10.0 } },
-        { QStringLiteral("gpt-5-mini"), { QStringLiteral("gpt-5-mini"), 0.25, 0.025, 2.0 } },
-        { QStringLiteral("gpt-5-nano"), { QStringLiteral("gpt-5-nano"), 0.05, 0.005, 0.4 } },
-    };
-
-    if (table.contains(model)) {
-        return table.value(model);
-    }
-    if (model == QStringLiteral("gpt-5.3-codex-spark")) {
-        auto pricing = table.value(QStringLiteral("gpt-5.3-codex"));
-        pricing.mapped = true;
-        return pricing;
-    }
-    return std::nullopt;
 }
 
 } // namespace
@@ -260,7 +205,7 @@ QVariantList CodexUsage::modelCostBreakdown() const {
 }
 
 QString CodexUsage::pricingSource() const {
-    return QStringLiteral("OpenAI API pricing, fetched 2026-06-29 from developers.openai.com/api/docs/pricing");
+    return QStringLiteral("OpenAI standard short-context API pricing, verified 2026-07-10 at developers.openai.com/api/docs/pricing");
 }
 
 void CodexUsage::start() {
@@ -515,7 +460,7 @@ CodexUsage::RolloutCache CodexUsage::parseRollout(const QString& path, const QSt
 
         if (eventMs >= startMs) {
             parsed.monthUsage.add(usage);
-            parsed.usageByModel[normalizeModel(currentModel)].add(usage);
+            parsed.usageByModel[codexpricing::normalizeModel(currentModel)].add(usage);
         }
 
         const auto rateLimits = payload.value(QStringLiteral("rate_limits")).toObject();
@@ -556,24 +501,20 @@ QVariantList CodexUsage::buildCostBreakdown(const QHash<QString, TokenUsage>& us
         const auto usage = usageByModel.value(model);
         const QString basis = caelestia::config::GlobalConfig::instance()->bar()->codexUsage()->pricingBasis();
         QString comparisonModel = model;
-        if (basis == QStringLiteral("gpt-5.5")) {
-            comparisonModel = QStringLiteral("gpt-5.5");
-        } else if (basis == QStringLiteral("codexModel")) {
+        if (basis == QStringLiteral("codexModel")) {
             comparisonModel = QStringLiteral("gpt-5.3-codex");
+        } else if (basis != QStringLiteral("detectedModel") && codexpricing::pricingForModel(basis).has_value()) {
+            comparisonModel = basis;
         }
 
-        const auto pricing = pricingForModel(comparisonModel);
+        const auto pricing = codexpricing::pricingForModel(comparisonModel);
         qreal dollars = 0.0;
         QString pricedModel;
         bool mapped = false;
         bool priced = false;
 
         if (pricing.has_value()) {
-            const qreal uncachedInput = static_cast<qreal>(usage.input > usage.cachedInput ? usage.input - usage.cachedInput : 0);
-            const qreal cachedInput = static_cast<qreal>(usage.cachedInput);
-            const qreal output = static_cast<qreal>(usage.output);
-            const qreal cachedRate = pricing->hasCachedInput ? pricing->cachedInput : pricing->input;
-            dollars = (uncachedInput * pricing->input + cachedInput * cachedRate + output * pricing->output) / kPerMillion;
+            dollars = codexpricing::calculateCost(*pricing, usage.input, usage.cachedInput, usage.output);
             pricedModel = pricing->pricedModel;
             mapped = pricing->mapped || pricedModel != model;
             priced = true;
