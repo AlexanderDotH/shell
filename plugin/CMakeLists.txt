@@ -16,3 +16,7 @@ include(cmake/pch.cmake)
 include(cmake/qml-module.cmake)
 
 add_subdirectory(src/Caelestia)
+
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

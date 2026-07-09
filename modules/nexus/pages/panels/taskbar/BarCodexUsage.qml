@@ -35,6 +35,21 @@ PageBase {
             value: "detectedModel"
         },
         MenuItem {
+            text: qsTr("GPT-5.6 Sol")
+            icon: "api"
+            value: "gpt-5.6-sol"
+        },
+        MenuItem {
+            text: qsTr("GPT-5.6 Terra")
+            icon: "balance"
+            value: "gpt-5.6-terra"
+        },
+        MenuItem {
+            text: qsTr("GPT-5.6 Luna")
+            icon: "savings"
+            value: "gpt-5.6-luna"
+        },
+        MenuItem {
             text: qsTr("GPT-5.5")
             icon: "api"
             value: "gpt-5.5"
@@ -97,12 +112,12 @@ PageBase {
         return items.find(i => i.value === value) ?? items[0];
     }
 
-    title: qsTr("Codex usage")
-    isSubPage: true
-
     readonly property QtObject codexUsageRef: CServices.ServiceRef {
         service: CServices.CodexUsage
     }
+
+    title: qsTr("Codex usage")
+    isSubPage: true
 
     ColumnLayout {
         anchors.horizontalCenter: parent.horizontalCenter
@@ -165,10 +180,11 @@ PageBase {
         }
 
         Connections {
-            target: codexHome.field
             function onEditingFinished(): void {
                 GlobalConfig.bar.codexUsage.codexHome = codexHome.text.trim();
             }
+
+            target: codexHome.field
         }
 
         StepperRow {
