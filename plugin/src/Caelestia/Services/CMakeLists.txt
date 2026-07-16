@@ -18,6 +18,8 @@ qml_module(caelestia-services
         lyriccandidate.cpp
         lyrics.cpp
         codexpricing.cpp
+        codexresetcredits.cpp
+        codexratewindows.cpp
         codexusage.cpp
         sessionmanager.cpp
     LIBRARIES

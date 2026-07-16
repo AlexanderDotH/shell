@@ -11,8 +11,8 @@ import qs.services
 StyledRect {
     id: root
 
-    readonly property bool fiveVisible: Config.bar.codexUsage.showFiveHour
-    readonly property bool weeklyVisible: Config.bar.codexUsage.showWeekly
+    readonly property bool fiveVisible: Config.bar.codexUsage.showFiveHour && CServices.CodexUsage.available && (CServices.CodexUsage.fiveHour.available ?? false)
+    readonly property bool weeklyVisible: Config.bar.codexUsage.showWeekly && CServices.CodexUsage.available && (CServices.CodexUsage.weekly.available ?? false)
     readonly property bool hasAnyRing: fiveVisible || weeklyVisible
     readonly property color inactiveColour: Colours.palette.m3outline
 
@@ -41,7 +41,7 @@ StyledRect {
             sourceComponent: UsageRing {
                 icon: "timer"
                 percent: (CServices.CodexUsage.fiveHour.usedPercent ?? 0)
-                ringColour: CServices.CodexUsage.available ? Colours.palette.m3primary : root.inactiveColour
+                ringColour: Colours.palette.m3primary
             }
         }
 
@@ -52,7 +52,7 @@ StyledRect {
             sourceComponent: UsageRing {
                 icon: "calendar_month"
                 percent: (CServices.CodexUsage.weekly.usedPercent ?? 0)
-                ringColour: CServices.CodexUsage.available ? Colours.palette.m3tertiary : root.inactiveColour
+                ringColour: Colours.palette.m3tertiary
             }
         }
 

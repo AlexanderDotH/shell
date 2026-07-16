@@ -11,6 +11,12 @@ import qs.services
 ColumnLayout {
     id: root
 
+    property double nowEpoch: Date.now() / 1000
+    readonly property bool hasAnyLimit: CServices.CodexUsage.available && ((CServices.CodexUsage.fiveHour.available ?? false) || (CServices.CodexUsage.weekly.available ?? false))
+    readonly property var resetData: CServices.CodexUsage.rateLimitResets
+    readonly property string resetState: resetData.state ?? "loading"
+    readonly property int resetCount: Number(resetData.availableCount ?? 0)
+
     readonly property QtObject codexUsageRef: CServices.ServiceRef {
         service: CServices.CodexUsage
     }
@@ -34,7 +40,20 @@ ColumnLayout {
         const seconds = Number(epoch ?? 0);
         if (seconds <= 0)
             return qsTr("Unknown");
-        return Qt.formatDateTime(new Date(seconds * 1000), GlobalConfig.services.useTwelveHourClock ? "MMM d, h:mm A" : "MMM d, HH:mm");
+        const remainingMinutes = Math.max(0, Math.ceil((seconds - root.nowEpoch) / 60));
+        if (remainingMinutes === 0)
+            return qsTr("now");
+        const days = Math.floor(remainingMinutes / 1440);
+        const hours = Math.floor((remainingMinutes % 1440) / 60);
+        const minutes = remainingMinutes % 60;
+        const parts = [];
+        if (days > 0)
+            parts.push(qsTr("%1d").arg(days));
+        if (hours > 0)
+            parts.push(qsTr("%1h").arg(hours));
+        if (days === 0 && minutes > 0)
+            parts.push(qsTr("%1m").arg(minutes));
+        return qsTr("in %1").arg(parts.join(" "));
     }
 
     function authLine(): string {
@@ -49,8 +68,26 @@ ColumnLayout {
         return parts.join("  |  ");
     }
 
+    function resetExpiry(): string {
+        const credits = root.resetData.credits ?? [];
+        let earliest = 0;
+        for (let i = 0; i < credits.length; i++) {
+            const expiresAt = Number(credits[i]?.expiresAt ?? 0);
+            if (expiresAt > root.nowEpoch && (earliest === 0 || expiresAt < earliest))
+                earliest = expiresAt;
+        }
+        return earliest > 0 ? qsTr("Expires %1").arg(Qt.formatDateTime(new Date(earliest * 1000), "MMM d")) : "";
+    }
+
     spacing: Tokens.spacing.medium
     width: 320
+
+    Timer {
+        interval: 30000
+        repeat: true
+        running: true
+        onTriggered: root.nowEpoch = Date.now() / 1000
+    }
 
     RowLayout {
         Layout.fillWidth: true
@@ -87,19 +124,21 @@ ColumnLayout {
 
     StyledText {
         Layout.fillWidth: true
-        visible: !CServices.CodexUsage.available
+        visible: CServices.CodexUsage.status !== "OK"
         text: CServices.CodexUsage.status
-        color: Colours.palette.m3error
+        color: CServices.CodexUsage.available ? Colours.palette.m3outline : Colours.palette.m3error
         font: Tokens.font.label.small
         wrapMode: Text.WordWrap
     }
 
     RowLayout {
         Layout.fillWidth: true
+        visible: root.hasAnyLimit
         spacing: Tokens.spacing.medium
 
         UsageWindow {
             Layout.fillWidth: true
+            visible: CServices.CodexUsage.available && (CServices.CodexUsage.fiveHour.available ?? false)
             label: qsTr("5h")
             icon: "timer"
             colour: Colours.palette.m3primary
@@ -108,10 +147,74 @@ ColumnLayout {
 
         UsageWindow {
             Layout.fillWidth: true
+            visible: CServices.CodexUsage.available && (CServices.CodexUsage.weekly.available ?? false)
             label: qsTr("Week")
             icon: "calendar_month"
             colour: Colours.palette.m3tertiary
             usageData: CServices.CodexUsage.weekly
+        }
+    }
+
+    StyledRect {
+        Layout.fillWidth: true
+        implicitHeight: resetLayout.implicitHeight + Tokens.padding.small * 2
+        color: Colours.tPalette.m3surfaceContainer
+        radius: Tokens.rounding.large
+
+        RowLayout {
+            id: resetLayout
+
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.leftMargin: Tokens.padding.medium
+            anchors.rightMargin: Tokens.padding.medium
+            spacing: Tokens.spacing.small
+
+            MaterialIcon {
+                text: "restart_alt"
+                color: Colours.palette.m3outline
+                fontStyle: Tokens.font.icon.small
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 0
+
+                StyledText {
+                    Layout.fillWidth: true
+                    text: qsTr("Full resets")
+                    font: Tokens.font.label.builders.small.weight(Font.Medium).build()
+                    elide: Text.ElideRight
+                }
+
+                StyledText {
+                    Layout.fillWidth: true
+                    visible: text.length > 0
+                    text: root.resetExpiry()
+                    color: Colours.palette.m3outline
+                    font: Tokens.font.label.small
+                    elide: Text.ElideRight
+                }
+            }
+
+            StyledRect {
+                implicitWidth: resetCountLabel.implicitWidth + Tokens.padding.medium
+                implicitHeight: resetCountLabel.implicitHeight + Tokens.padding.extraSmall * 2
+                color: Colours.tPalette.m3surfaceContainerHighest
+                radius: Tokens.rounding.full
+
+                StyledText {
+                    id: resetCountLabel
+
+                    anchors.centerIn: parent
+                    text: root.resetState === "ready"
+                        ? (root.resetCount === 1 ? qsTr("1 available") : qsTr("%1 available").arg(root.resetCount))
+                        : (root.resetState === "loading" ? qsTr("Checking…") : qsTr("Unavailable"))
+                    color: root.resetState === "ready" ? Colours.palette.m3onSurface : Colours.palette.m3outline
+                    font: Tokens.font.label.builders.small.weight(Font.Medium).build()
+                }
+            }
         }
     }
 
@@ -280,7 +383,7 @@ ColumnLayout {
 
             StyledText {
                 Layout.fillWidth: true
-                text: qsTr("Reset %1").arg(root.formatReset(usage.usageData?.resetsAt))
+                text: qsTr("Renews %1").arg(root.formatReset(usage.usageData?.resetsAt))
                 color: Colours.palette.m3outline
                 font: Tokens.font.label.small
                 elide: Text.ElideRight

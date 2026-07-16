@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <qdir.h>
 #include <qfile.h>
 #include <qfileinfo.h>
@@ -13,10 +14,12 @@
 #include <qjsondocument.h>
 #include <qjsonobject.h>
 #include <qprocess.h>
+#include <QProcessEnvironment>
 #include <qset.h>
 #include <qsqldatabase.h>
 #include <qsqlquery.h>
 #include <qsqlerror.h>
+#include <qstandardpaths.h>
 #include <qtimezone.h>
 
 namespace {
@@ -129,20 +132,33 @@ QVariantMap CodexUsage::TokenUsage::toMap() const {
     };
 }
 
-QVariantMap CodexUsage::RateWindow::toMap() const {
-    return {
-        { QStringLiteral("available"), available },
-        { QStringLiteral("usedPercent"), usedPercent },
-        { QStringLiteral("windowMinutes"), windowMinutes },
-        { QStringLiteral("resetsAt"), resetsAt },
-    };
-}
-
 CodexUsage::CodexUsage(QObject* parent)
     : Service(parent)
-    , m_timer(new QTimer(this)) {
+    , m_timer(new QTimer(this))
+    , m_resetTimer(new QTimer(this))
+    , m_appServer(new QProcess(this)) {
     m_timer->setSingleShot(false);
     QObject::connect(m_timer, &QTimer::timeout, this, &CodexUsage::refresh);
+    m_resetTimer->setSingleShot(true);
+    QObject::connect(m_resetTimer, &QTimer::timeout, this, &CodexUsage::refresh);
+
+    m_appServer->setStandardErrorFile(QProcess::nullDevice());
+    QObject::connect(m_appServer, &QProcess::started, this, &CodexUsage::initializeAppServer);
+    QObject::connect(m_appServer, &QProcess::readyReadStandardOutput, this, &CodexUsage::handleAppServerOutput);
+    QObject::connect(m_appServer, &QProcess::errorOccurred, this, [this](QProcess::ProcessError) {
+        m_appServerInitialized = false;
+        m_resetCreditsPending = false;
+        setResetCreditsState(QStringLiteral("error"));
+    });
+    QObject::connect(m_appServer, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
+        [this](int, QProcess::ExitStatus) {
+            m_appServerInitialized = false;
+            m_resetCreditsPending = false;
+            m_appServerBuffer.clear();
+            if (m_running) {
+                setResetCreditsState(QStringLiteral("error"));
+            }
+        });
 
     auto* cfg = caelestia::config::GlobalConfig::instance()->bar()->codexUsage();
     QObject::connect(cfg, &caelestia::config::BarCodexUsage::refreshIntervalSecondsChanged, this, &CodexUsage::applyInterval);
@@ -188,6 +204,10 @@ QVariantMap CodexUsage::weekly() const {
     return m_weekly;
 }
 
+QVariantMap CodexUsage::rateLimitResets() const {
+    return m_rateLimitResets;
+}
+
 QVariantMap CodexUsage::monthlyTokens() const {
     return m_monthlyTokens;
 }
@@ -211,12 +231,15 @@ QString CodexUsage::pricingSource() const {
 void CodexUsage::start() {
     m_running = true;
     applyInterval();
+    startAppServer();
     refresh();
 }
 
 void CodexUsage::stop() {
     m_running = false;
     m_timer->stop();
+    m_resetTimer->stop();
+    stopAppServer();
 }
 
 void CodexUsage::applyInterval() {
@@ -229,11 +252,158 @@ void CodexUsage::applyInterval() {
     }
 }
 
+void CodexUsage::scheduleResetRefresh(const codexratewindows::RateWindows& windows) {
+    m_resetTimer->stop();
+    const qint64 now = QDateTime::currentSecsSinceEpoch();
+    const qint64 resetAt = windows.nextResetAt(now);
+    if (!m_running || resetAt == 0) {
+        return;
+    }
+
+    const qint64 delayMs = (resetAt - now) * 1000 + 1000;
+    m_resetTimer->start(static_cast<int>(std::min<qint64>(delayMs, std::numeric_limits<int>::max())));
+}
+
 void CodexUsage::refresh() {
+    startAppServer();
     const QString codexHome = resolveCodexHome();
     refreshAuth(codexHome);
     refreshUsage(codexHome);
+    requestRateLimitResets();
     m_lastUpdated = QDateTime::currentSecsSinceEpoch();
+    emit changed();
+}
+
+void CodexUsage::startAppServer() {
+    if (!m_running || m_appServer->state() != QProcess::NotRunning) {
+        return;
+    }
+
+    const QString executable = QStandardPaths::findExecutable(QStringLiteral("codex"));
+    if (executable.isEmpty()) {
+        setResetCreditsState(QStringLiteral("unavailable"));
+        return;
+    }
+
+    m_appServerInitialized = false;
+    m_resetCreditsPending = false;
+    m_appServerBuffer.clear();
+    setResetCreditsState(QStringLiteral("loading"));
+
+    auto environment = QProcessEnvironment::systemEnvironment();
+    environment.insert(QStringLiteral("CODEX_SKIP_MCP_STACK"), QStringLiteral("1"));
+    m_appServer->setProcessEnvironment(environment);
+    m_appServer->setProgram(executable);
+    m_appServer->setArguments({ QStringLiteral("app-server"), QStringLiteral("--stdio") });
+    m_appServer->start();
+}
+
+void CodexUsage::stopAppServer() {
+    m_appServerInitialized = false;
+    m_resetCreditsPending = false;
+    if (m_appServer->state() == QProcess::NotRunning) {
+        return;
+    }
+    m_appServer->terminate();
+    if (!m_appServer->waitForFinished(1000)) {
+        m_appServer->kill();
+    }
+}
+
+void CodexUsage::initializeAppServer() {
+    m_initializeRequestId = m_nextAppServerRequestId++;
+    const QJsonObject request {
+        { QStringLiteral("id"), m_initializeRequestId },
+        { QStringLiteral("method"), QStringLiteral("initialize") },
+        { QStringLiteral("params"), QJsonObject {
+                                        { QStringLiteral("clientInfo"), QJsonObject {
+                                                                                  { QStringLiteral("name"), QStringLiteral("caelestia-shell") },
+                                                                                  { QStringLiteral("title"), QStringLiteral("Caelestia Shell") },
+                                                                                  { QStringLiteral("version"), QStringLiteral("1") },
+                                                                              } },
+                                        { QStringLiteral("capabilities"), QJsonObject {
+                                                                                    { QStringLiteral("experimentalApi"), true },
+                                                                                    { QStringLiteral("requestAttestation"), false },
+                                                                                } },
+                                    } },
+    };
+    m_appServer->write(QJsonDocument(request).toJson(QJsonDocument::Compact) + '\n');
+}
+
+void CodexUsage::requestRateLimitResets() {
+    if (!m_appServerInitialized || m_resetCreditsPending || m_appServer->state() != QProcess::Running) {
+        return;
+    }
+
+    m_resetCreditsPending = true;
+    m_rateLimitsRequestId = m_nextAppServerRequestId++;
+    const QJsonObject request {
+        { QStringLiteral("id"), m_rateLimitsRequestId },
+        { QStringLiteral("method"), QStringLiteral("account/rateLimits/read") },
+        { QStringLiteral("params"), QJsonObject {} },
+    };
+    m_appServer->write(QJsonDocument(request).toJson(QJsonDocument::Compact) + '\n');
+}
+
+void CodexUsage::handleAppServerOutput() {
+    m_appServerBuffer.append(m_appServer->readAllStandardOutput());
+    while (true) {
+        const qsizetype newline = m_appServerBuffer.indexOf('\n');
+        if (newline < 0) {
+            return;
+        }
+
+        const QByteArray line = m_appServerBuffer.left(newline).trimmed();
+        m_appServerBuffer.remove(0, newline + 1);
+        if (line.isEmpty()) {
+            continue;
+        }
+
+        const auto document = QJsonDocument::fromJson(line);
+        if (!document.isObject()) {
+            continue;
+        }
+        const auto response = document.object();
+        const qint64 id = jsonLong(response.value(QStringLiteral("id")));
+        if (id == m_initializeRequestId) {
+            if (response.contains(QStringLiteral("result"))) {
+                m_appServerInitialized = true;
+                const QJsonObject initialized {
+                    { QStringLiteral("method"), QStringLiteral("initialized") },
+                };
+                m_appServer->write(QJsonDocument(initialized).toJson(QJsonDocument::Compact) + '\n');
+                requestRateLimitResets();
+            } else {
+                setResetCreditsState(QStringLiteral("error"));
+            }
+            continue;
+        }
+
+        if (id != m_rateLimitsRequestId) {
+            continue;
+        }
+
+        m_resetCreditsPending = false;
+        if (!response.value(QStringLiteral("result")).isObject()) {
+            setResetCreditsState(QStringLiteral("error"));
+            continue;
+        }
+
+        const auto result = response.value(QStringLiteral("result")).toObject();
+        m_rateLimitResets = codexresetcredits::parse(result.value(QStringLiteral("rateLimitResetCredits"))).toMap();
+        emit changed();
+    }
+}
+
+void CodexUsage::setResetCreditsState(const QString& state) {
+    if (m_rateLimitResets.value(QStringLiteral("state")).toString() == state) {
+        return;
+    }
+    m_rateLimitResets.insert(QStringLiteral("state"), state);
+    if (state == QStringLiteral("loading") || state == QStringLiteral("unavailable")) {
+        m_rateLimitResets.insert(QStringLiteral("availableCount"), 0);
+        m_rateLimitResets.insert(QStringLiteral("credits"), QVariantList {});
+    }
     emit changed();
 }
 
@@ -307,8 +477,9 @@ void CodexUsage::refreshUsage(const QString& codexHome) {
     if (!QFileInfo::exists(stateDb)) {
         m_available = false;
         m_status = QStringLiteral("No Codex state database");
-        m_fiveHour = RateWindow {}.toMap();
-        m_weekly = RateWindow {}.toMap();
+        m_resetTimer->stop();
+        m_fiveHour = codexratewindows::RateWindow {}.toMap();
+        m_weekly = codexratewindows::RateWindow {}.toMap();
         m_monthlyTokens = TokenUsage {}.toMap();
         m_modelCostBreakdown = {};
         m_monthlyApiDollars = 0.0;
@@ -350,13 +521,16 @@ void CodexUsage::refreshUsage(const QString& codexHome) {
     if (!dbError.isEmpty()) {
         m_available = false;
         m_status = QStringLiteral("Codex database error: %1").arg(dbError);
+        m_resetTimer->stop();
+        m_fiveHour = codexratewindows::RateWindow {}.toMap();
+        m_weekly = codexratewindows::RateWindow {}.toMap();
         return;
     }
 
     TokenUsage totalUsage;
     QHash<QString, TokenUsage> usageByModel;
-    RateWindow primary;
-    RateWindow secondary;
+    codexratewindows::RateWindow primary;
+    codexratewindows::RateWindow secondary;
     qint64 latestRate = 0;
     QSet<QString> visited;
     qsizetype parsedFiles = 0;
@@ -398,10 +572,18 @@ void CodexUsage::refreshUsage(const QString& codexHome) {
     m_monthlyApiDollars = dollars;
     m_monthlyApiDollarsText = QStringLiteral("$%1").arg(dollars, 0, 'f', dollars < 10.0 ? 2 : 0);
     m_monthlyTokens = totalUsage.toMap();
-    m_fiveHour = primary.toMap();
-    m_weekly = secondary.toMap();
+    const auto rateWindows = codexratewindows::normalize(primary, secondary);
+    m_fiveHour = rateWindows.fiveHour.toMap();
+    m_weekly = rateWindows.weekly.toMap();
+    scheduleResetRefresh(rateWindows);
     m_available = parsedFiles > 0;
-    m_status = parsedFiles > 0 ? QStringLiteral("OK") : QStringLiteral("No Codex token-count events");
+    if (parsedFiles == 0) {
+        m_status = QStringLiteral("No Codex token-count events yet");
+    } else if (!rateWindows.fiveHour.available && !rateWindows.weekly.available) {
+        m_status = QStringLiteral("Waiting for fresh Codex rate-limit data");
+    } else {
+        m_status = QStringLiteral("OK");
+    }
 }
 
 CodexUsage::RolloutCache CodexUsage::parseRollout(const QString& path, const QString& fallbackModel, qint64 startMs) {
