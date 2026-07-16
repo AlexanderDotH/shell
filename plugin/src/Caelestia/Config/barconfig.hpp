@@ -133,7 +133,7 @@ class BarCodexUsage : public ConfigObject {
     CONFIG_PROPERTY(bool, showWeekly, true)
     CONFIG_PROPERTY(bool, showSavings, true)
     CONFIG_PROPERTY(QString, codexHome)
-    CONFIG_PROPERTY(int, refreshIntervalSeconds, 30)
+    CONFIG_PROPERTY(int, refreshIntervalSeconds, 10)
     CONFIG_PROPERTY(QString, accountDisplay, u"maskedEmail"_s)
     CONFIG_PROPERTY(QString, pricingBasis, u"detectedModel"_s)
     CONFIG_PROPERTY(QString, monthlyWindow, u"calendarMonth"_s)
