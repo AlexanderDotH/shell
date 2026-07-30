@@ -21,6 +21,7 @@
 #include <qsqlquery.h>
 #include <qstandardpaths.h>
 #include <qtimezone.h>
+#include <utility>
 
 namespace {
 
@@ -684,7 +685,7 @@ QVariantList CodexUsage::buildCostBreakdown(const QHash<QString, TokenUsage>& us
     QList<QString> models = usageByModel.keys();
     std::sort(models.begin(), models.end());
 
-    for (const auto& model : models) {
+    for (const auto& model : std::as_const(models)) {
         const auto usage = usageByModel.value(model);
         const QString basis = caelestia::config::GlobalConfig::instance()->bar()->codexUsage()->pricingBasis();
         QString comparisonModel = model;

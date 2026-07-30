@@ -61,7 +61,8 @@ ResetCreditsSummary parse(const QJsonValue& value) {
         return summary;
     }
 
-    for (const auto& entry : credits.toArray()) {
+    const auto creditEntries = credits.toArray();
+    for (const auto& entry : creditEntries) {
         if (!entry.isObject()) {
             continue;
         }

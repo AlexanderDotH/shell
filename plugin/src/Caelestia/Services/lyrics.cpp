@@ -120,8 +120,10 @@ const QString kMusixmatchFallbackSignKey = u"741941edc264ea6293cb9a6458103b4eda3
         u"\\s+(?:feat\\.?|ft\\.?|featuring)\\s+"_s, QRegularExpression::CaseInsensitiveOption);
 
     QStringList artists;
-    for (const QString& part : artist.split(separatorRegex, Qt::SkipEmptyParts)) {
-        for (const QString& subpart : part.split(featuredRegex, Qt::SkipEmptyParts)) {
+    const auto artistParts = artist.split(separatorRegex, Qt::SkipEmptyParts);
+    for (const QString& part : artistParts) {
+        const auto featuredParts = part.split(featuredRegex, Qt::SkipEmptyParts);
+        for (const QString& subpart : featuredParts) {
             const QString simplified = simplifyForMatch(subpart);
             if (!simplified.isEmpty()) {
                 artists.append(simplified);
