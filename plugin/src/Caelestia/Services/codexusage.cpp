@@ -4,6 +4,7 @@
 #include "../Config/barconfig.hpp"
 #include "../Config/config.hpp"
 
+#include <QProcessEnvironment>
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -14,17 +15,17 @@
 #include <qjsondocument.h>
 #include <qjsonobject.h>
 #include <qprocess.h>
-#include <QProcessEnvironment>
 #include <qset.h>
 #include <qsqldatabase.h>
-#include <qsqlquery.h>
 #include <qsqlerror.h>
+#include <qsqlquery.h>
 #include <qstandardpaths.h>
 #include <qtimezone.h>
 
 namespace {
 
 constexpr qint64 kWeeklyWindowSeconds = 7 * 24 * 60 * 60;
+
 qint64 jsonLong(const QJsonValue& value) {
     if (value.isDouble()) {
         return qRound64(value.toDouble());
@@ -93,7 +94,7 @@ QJsonObject decodeJwtPayload(const QString& jwt) {
 
     const auto decoded = QByteArray::fromBase64(payload);
     const auto doc = QJsonDocument::fromJson(decoded);
-    return doc.isObject() ? doc.object() : QJsonObject {};
+    return doc.isObject() ? doc.object() : QJsonObject{};
 }
 
 QString firstDefaultOrgTitle(const QJsonArray& organizations) {
@@ -161,7 +162,8 @@ CodexUsage::CodexUsage(QObject* parent)
         });
 
     auto* cfg = caelestia::config::GlobalConfig::instance()->bar()->codexUsage();
-    QObject::connect(cfg, &caelestia::config::BarCodexUsage::refreshIntervalSecondsChanged, this, &CodexUsage::applyInterval);
+    QObject::connect(
+        cfg, &caelestia::config::BarCodexUsage::refreshIntervalSecondsChanged, this, &CodexUsage::applyInterval);
     QObject::connect(cfg, &caelestia::config::BarCodexUsage::codexHomeChanged, this, &CodexUsage::refresh);
     QObject::connect(cfg, &caelestia::config::BarCodexUsage::monthlyWindowChanged, this, &CodexUsage::refresh);
     QObject::connect(cfg, &caelestia::config::BarCodexUsage::accountDisplayChanged, this, &CodexUsage::refresh);
@@ -225,7 +227,8 @@ QVariantList CodexUsage::modelCostBreakdown() const {
 }
 
 QString CodexUsage::pricingSource() const {
-    return QStringLiteral("OpenAI standard short-context API pricing, verified 2026-07-10 at developers.openai.com/api/docs/pricing");
+    return QStringLiteral(
+        "OpenAI standard short-context API pricing, verified 2026-07-10 at developers.openai.com/api/docs/pricing");
 }
 
 void CodexUsage::start() {
@@ -243,10 +246,8 @@ void CodexUsage::stop() {
 }
 
 void CodexUsage::applyInterval() {
-    const auto seconds = std::max(5, caelestia::config::GlobalConfig::instance()
-                                         ->bar()
-                                         ->codexUsage()
-                                         ->refreshIntervalSeconds());
+    const auto seconds =
+        std::max(5, caelestia::config::GlobalConfig::instance()->bar()->codexUsage()->refreshIntervalSeconds());
     if (m_running) {
         m_timer->start(seconds * 1000);
     }
@@ -312,20 +313,23 @@ void CodexUsage::stopAppServer() {
 
 void CodexUsage::initializeAppServer() {
     m_initializeRequestId = m_nextAppServerRequestId++;
-    const QJsonObject request {
+    const QJsonObject request{
         { QStringLiteral("id"), m_initializeRequestId },
         { QStringLiteral("method"), QStringLiteral("initialize") },
-        { QStringLiteral("params"), QJsonObject {
-                                        { QStringLiteral("clientInfo"), QJsonObject {
-                                                                                  { QStringLiteral("name"), QStringLiteral("caelestia-shell") },
-                                                                                  { QStringLiteral("title"), QStringLiteral("Caelestia Shell") },
-                                                                                  { QStringLiteral("version"), QStringLiteral("1") },
-                                                                              } },
-                                        { QStringLiteral("capabilities"), QJsonObject {
-                                                                                    { QStringLiteral("experimentalApi"), true },
-                                                                                    { QStringLiteral("requestAttestation"), false },
-                                                                                } },
-                                    } },
+        { QStringLiteral("params"),
+            QJsonObject{
+                { QStringLiteral("clientInfo"),
+                    QJsonObject{
+                        { QStringLiteral("name"), QStringLiteral("caelestia-shell") },
+                        { QStringLiteral("title"), QStringLiteral("Caelestia Shell") },
+                        { QStringLiteral("version"), QStringLiteral("1") },
+                    } },
+                { QStringLiteral("capabilities"),
+                    QJsonObject{
+                        { QStringLiteral("experimentalApi"), true },
+                        { QStringLiteral("requestAttestation"), false },
+                    } },
+            } },
     };
     m_appServer->write(QJsonDocument(request).toJson(QJsonDocument::Compact) + '\n');
 }
@@ -337,10 +341,10 @@ void CodexUsage::requestRateLimitResets() {
 
     m_resetCreditsPending = true;
     m_rateLimitsRequestId = m_nextAppServerRequestId++;
-    const QJsonObject request {
+    const QJsonObject request{
         { QStringLiteral("id"), m_rateLimitsRequestId },
         { QStringLiteral("method"), QStringLiteral("account/rateLimits/read") },
-        { QStringLiteral("params"), QJsonObject {} },
+        { QStringLiteral("params"), QJsonObject{} },
     };
     m_appServer->write(QJsonDocument(request).toJson(QJsonDocument::Compact) + '\n');
 }
@@ -368,7 +372,7 @@ void CodexUsage::handleAppServerOutput() {
         if (id == m_initializeRequestId) {
             if (response.contains(QStringLiteral("result"))) {
                 m_appServerInitialized = true;
-                const QJsonObject initialized {
+                const QJsonObject initialized{
                     { QStringLiteral("method"), QStringLiteral("initialized") },
                 };
                 m_appServer->write(QJsonDocument(initialized).toJson(QJsonDocument::Compact) + '\n');
@@ -402,7 +406,7 @@ void CodexUsage::setResetCreditsState(const QString& state) {
     m_rateLimitResets.insert(QStringLiteral("state"), state);
     if (state == QStringLiteral("loading") || state == QStringLiteral("unavailable")) {
         m_rateLimitResets.insert(QStringLiteral("availableCount"), 0);
-        m_rateLimitResets.insert(QStringLiteral("credits"), QVariantList {});
+        m_rateLimitResets.insert(QStringLiteral("credits"), QVariantList{});
     }
     emit changed();
 }
@@ -458,7 +462,8 @@ void CodexUsage::refreshAuth(const QString& codexHome) {
     const QString email = claims.value(QStringLiteral("email")).toString();
     const QString accountDisplay = caelestia::config::GlobalConfig::instance()->bar()->codexUsage()->accountDisplay();
     if (accountDisplay == QStringLiteral("planOnly")) {
-        m_accountLabel = m_authMode == QStringLiteral("chatgpt") ? QStringLiteral("ChatGPT") : QStringLiteral("API key mode");
+        m_accountLabel =
+            m_authMode == QStringLiteral("chatgpt") ? QStringLiteral("ChatGPT") : QStringLiteral("API key mode");
     } else if (accountDisplay == QStringLiteral("fullEmail") && !email.isEmpty()) {
         m_accountLabel = email;
     } else if (!email.isEmpty()) {
@@ -478,9 +483,9 @@ void CodexUsage::refreshUsage(const QString& codexHome) {
         m_available = false;
         m_status = QStringLiteral("No Codex state database");
         m_resetTimer->stop();
-        m_fiveHour = codexratewindows::RateWindow {}.toMap();
-        m_weekly = codexratewindows::RateWindow {}.toMap();
-        m_monthlyTokens = TokenUsage {}.toMap();
+        m_fiveHour = codexratewindows::RateWindow{}.toMap();
+        m_weekly = codexratewindows::RateWindow{}.toMap();
+        m_monthlyTokens = TokenUsage{}.toMap();
         m_modelCostBreakdown = {};
         m_monthlyApiDollars = 0.0;
         m_monthlyApiDollarsText = QStringLiteral("$0.00");
@@ -501,9 +506,8 @@ void CodexUsage::refreshUsage(const QString& codexHome) {
             dbError = db.lastError().text();
         } else {
             QSqlQuery query(db);
-            query.prepare(QStringLiteral(
-                "SELECT rollout_path, COALESCE(model, '') FROM threads "
-                "WHERE updated_at >= ? OR created_at >= ? ORDER BY updated_at DESC"));
+            query.prepare(QStringLiteral("SELECT rollout_path, COALESCE(model, '') FROM threads "
+                                         "WHERE updated_at >= ? OR created_at >= ? ORDER BY updated_at DESC"));
             query.addBindValue(querySince);
             query.addBindValue(querySince);
             if (!query.exec()) {
@@ -522,8 +526,8 @@ void CodexUsage::refreshUsage(const QString& codexHome) {
         m_available = false;
         m_status = QStringLiteral("Codex database error: %1").arg(dbError);
         m_resetTimer->stop();
-        m_fiveHour = codexratewindows::RateWindow {}.toMap();
-        m_weekly = codexratewindows::RateWindow {}.toMap();
+        m_fiveHour = codexratewindows::RateWindow{}.toMap();
+        m_weekly = codexratewindows::RateWindow{}.toMap();
         return;
     }
 
@@ -632,11 +636,12 @@ CodexUsage::RolloutCache CodexUsage::parseRollout(const QString& path, const QSt
         const qint64 eventMs = eventTime.isValid() ? eventTime.toMSecsSinceEpoch() : 0;
         const auto infoObj = payload.value(QStringLiteral("info")).toObject();
         const auto lastUsage = infoObj.value(QStringLiteral("last_token_usage")).toObject();
-        TokenUsage usage {
+        TokenUsage usage{
             static_cast<quint64>(std::max<qint64>(0, jsonLong(lastUsage.value(QStringLiteral("input_tokens"))))),
             static_cast<quint64>(std::max<qint64>(0, jsonLong(lastUsage.value(QStringLiteral("cached_input_tokens"))))),
             static_cast<quint64>(std::max<qint64>(0, jsonLong(lastUsage.value(QStringLiteral("output_tokens"))))),
-            static_cast<quint64>(std::max<qint64>(0, jsonLong(lastUsage.value(QStringLiteral("reasoning_output_tokens"))))),
+            static_cast<quint64>(
+                std::max<qint64>(0, jsonLong(lastUsage.value(QStringLiteral("reasoning_output_tokens"))))),
             static_cast<quint64>(std::max<qint64>(0, jsonLong(lastUsage.value(QStringLiteral("total_tokens"))))),
         };
 
@@ -705,7 +710,7 @@ QVariantList CodexUsage::buildCostBreakdown(const QHash<QString, TokenUsage>& us
             }
         }
 
-        rows.append(QVariantMap {
+        rows.append(QVariantMap{
             { QStringLiteral("model"), model },
             { QStringLiteral("pricedModel"), pricedModel },
             { QStringLiteral("priced"), priced },

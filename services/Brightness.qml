@@ -28,25 +28,25 @@ Singleton {
 
     function getMonitor(query: string): var {
         if (query === "active") {
-            return monitors.find(m => Hypr.monitorFor(m.modelData)?.focused); // qmllint disable missing-property
+            return monitors.find(m => Hypr.safeMonitorFor(m?.modelData)?.focused); // qmllint disable missing-property
         }
 
         if (query.startsWith("model:")) {
             const model = query.slice(6);
-            return monitors.find(m => m.modelData.model === model); // qmllint disable missing-property
+            return monitors.find(m => m?.modelData?.model === model); // qmllint disable missing-property
         }
 
         if (query.startsWith("serial:")) {
             const serial = query.slice(7);
-            return monitors.find(m => m.modelData.serialNumber === serial); // qmllint disable missing-property
+            return monitors.find(m => m?.modelData?.serialNumber === serial); // qmllint disable missing-property
         }
 
         if (query.startsWith("id:")) {
             const id = parseInt(query.slice(3), 10);
-            return monitors.find(m => Hypr.monitorFor(m.modelData)?.id === id); // qmllint disable missing-property
+            return monitors.find(m => Hypr.safeMonitorFor(m?.modelData)?.id === id); // qmllint disable missing-property
         }
 
-        return monitors.find(m => m.modelData.name === query); // qmllint disable missing-property
+        return monitors.find(m => m?.modelData?.name === query); // qmllint disable missing-property
     }
 
     function increaseBrightness(): void {
@@ -69,7 +69,7 @@ Singleton {
     Variants {
         id: variants
 
-        model: Quickshell.screens // Don't respect excluded screens cause ipc
+        model: Screens.validScreens // qmllint disable missing-property
 
         Monitor {}
     }
@@ -170,7 +170,7 @@ Singleton {
         readonly property var ddcInfo: modelData?.name ? (root.ddcMonitorMap[modelData.name] ?? null) : null
         readonly property bool isDdc: ddcInfo !== null
         readonly property string busNum: ddcInfo?.busNum ?? ""
-        readonly property bool isAppleDisplay: root.appleDisplayPresent && (modelData?.model?.startsWith("StudioDisplay") ?? false)
+        readonly property bool isAppleDisplay: root.appleDisplayPresent && (modelData?.model.startsWith("StudioDisplay") ?? false)
         property real brightness
         property real queuedBrightness: NaN
 

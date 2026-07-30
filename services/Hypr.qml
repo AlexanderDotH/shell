@@ -19,7 +19,7 @@ Singleton {
 
     readonly property HyprlandToplevel activeToplevel: {
         const t = Hyprland.activeToplevel;
-        return t?.workspace?.name.startsWith("special:") || Hyprland.focusedWorkspace?.toplevels.values.length > 0 ? t : null;
+        return t?.workspace?.name.startsWith("special:") || (Hyprland.focusedWorkspace?.toplevels?.values.length ?? 0) > 0 ? t : null;
     }
     readonly property HyprlandWorkspace focusedWorkspace: Hyprland.focusedWorkspace
     readonly property HyprlandMonitor focusedMonitor: Hyprland.focusedMonitor
@@ -52,7 +52,7 @@ Singleton {
         if (openSpecials.length === 0)
             return;
 
-        const activeSpecial = focusedMonitor.lastIpcObject.specialWorkspace.name ?? "";
+        const activeSpecial = focusedMonitor?.lastIpcObject.specialWorkspace?.name ?? "";
 
         if (!activeSpecial) {
             if (lastSpecialWorkspace) {
@@ -164,7 +164,7 @@ Singleton {
 
     Connections {
         function onLastIpcObjectChanged(): void {
-            const specialName = root.focusedMonitor.lastIpcObject.specialWorkspace.name;
+            const specialName = root.focusedMonitor?.lastIpcObject.specialWorkspace?.name;
 
             if (specialName && specialName.startsWith("special:")) {
                 root.lastSpecialWorkspace = specialName;

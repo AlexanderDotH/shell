@@ -10,6 +10,7 @@
 #include <qjsonarray.h>
 #include <qmessageauthenticationcode.h>
 #include <qnetworkcookiejar.h>
+#include <qnumeric.h>
 #include <qregularexpression.h>
 #include <qsavefile.h>
 #include <qurlquery.h>
@@ -18,6 +19,7 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <limits>
 
 Q_LOGGING_CATEGORY(lcLyrics, "caelestia.lyrics", QtInfoMsg)
 
@@ -98,7 +100,8 @@ const QString kMusixmatchFallbackSignKey = u"741941edc264ea6293cb9a6458103b4eda3
 }
 
 [[nodiscard]] QString simplifyForMatch(QString text) {
-    static const QRegularExpression featuredRegex(u"\\s*[\\(\\[]\\s*(?:feat\\.?|ft\\.?|featuring)\\s+[^\\)\\]]+[\\)\\]]\\s*"_s,
+    static const QRegularExpression featuredRegex(
+        u"\\s*[\\(\\[]\\s*(?:feat\\.?|ft\\.?|featuring)\\s+[^\\)\\]]+[\\)\\]]\\s*"_s,
         QRegularExpression::CaseInsensitiveOption);
     static const QRegularExpression combiningRegex(u"\\p{Mn}"_s);
     static const QRegularExpression whitespaceRegex(u"\\s+"_s);
@@ -113,8 +116,8 @@ const QString kMusixmatchFallbackSignKey = u"741941edc264ea6293cb9a6458103b4eda3
 
 [[nodiscard]] QStringList splitArtistsForMatch(const QString& artist) {
     static const QRegularExpression separatorRegex(u"[,;&/|]"_s);
-    static const QRegularExpression featuredRegex(u"\\s+(?:feat\\.?|ft\\.?|featuring)\\s+"_s,
-        QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression featuredRegex(
+        u"\\s+(?:feat\\.?|ft\\.?|featuring)\\s+"_s, QRegularExpression::CaseInsensitiveOption);
 
     QStringList artists;
     for (const QString& part : artist.split(separatorRegex, Qt::SkipEmptyParts)) {
@@ -130,8 +133,8 @@ const QString kMusixmatchFallbackSignKey = u"741941edc264ea6293cb9a6458103b4eda3
 
 [[nodiscard]] QString primaryArtist(const QString& artist) {
     static const QRegularExpression separatorRegex(u"[,;&/|]"_s);
-    static const QRegularExpression featuredRegex(u"\\s+(?:feat\\.?|ft\\.?|featuring)\\s+"_s,
-        QRegularExpression::CaseInsensitiveOption);
+    static const QRegularExpression featuredRegex(
+        u"\\s+(?:feat\\.?|ft\\.?|featuring)\\s+"_s, QRegularExpression::CaseInsensitiveOption);
 
     const QString first = artist.split(separatorRegex).value(0);
     const QString primary = first.split(featuredRegex).value(0).trimmed();
@@ -170,7 +173,8 @@ const QString kMusixmatchFallbackSignKey = u"741941edc264ea6293cb9a6458103b4eda3
 }
 
 [[nodiscard]] qreal matchScore(const LyricCandidate& hit, const QString& title, const QString& artist, qreal duration) {
-    const qsizetype titleMax = std::max<qsizetype>({ simplifyForMatch(title).size(), simplifyForMatch(hit.title()).size(), 1 });
+    const qsizetype titleMax =
+        std::max<qsizetype>({ simplifyForMatch(title).size(), simplifyForMatch(hit.title()).size(), 1 });
     qreal score = static_cast<qreal>(levenshteinDistance(title, hit.title())) / static_cast<qreal>(titleMax);
 
     const QStringList requestedArtists = splitArtistsForMatch(artist);
@@ -257,9 +261,8 @@ const QString kMusixmatchFallbackSignKey = u"741941edc264ea6293cb9a6458103b4eda3
 }
 
 [[nodiscard]] QStringList netEaseArtistNames(const QJsonObject& song) {
-    const QJsonArray artists = song.value(u"artists"_s).toArray().isEmpty()
-        ? song.value(u"ar"_s).toArray()
-        : song.value(u"artists"_s).toArray();
+    const QJsonArray artists = song.value(u"artists"_s).toArray().isEmpty() ? song.value(u"ar"_s).toArray()
+                                                                            : song.value(u"artists"_s).toArray();
 
     QStringList names;
     names.reserve(artists.size());
@@ -1417,8 +1420,7 @@ void Lyrics::trySpicyLyrics(int reqId) {
             }
 
             const QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
-            const QJsonArray tracks =
-                doc.object().value(u"tracks"_s).toObject().value(u"items"_s).toArray();
+            const QJsonArray tracks = doc.object().value(u"tracks"_s).toObject().value(u"items"_s).toArray();
 
             QList<LyricCandidate> hits;
             hits.reserve(tracks.size());
@@ -1625,8 +1627,7 @@ void Lyrics::searchSpicyLyricsCandidates(int reqId) {
             }
 
             const QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
-            const QJsonArray tracks =
-                doc.object().value(u"tracks"_s).toObject().value(u"items"_s).toArray();
+            const QJsonArray tracks = doc.object().value(u"tracks"_s).toObject().value(u"items"_s).toArray();
 
             QList<LyricCandidate> add;
             add.reserve(tracks.size());
@@ -1713,8 +1714,7 @@ void Lyrics::fetchNetEaseLyricsById(const QString& id, int reqId, const LyricCan
     });
 }
 
-void Lyrics::fetchDeezerLyricsById(
-    const QString& id, int reqId, const LyricCandidate& candidate, bool chainOnFailure) {
+void Lyrics::fetchDeezerLyricsById(const QString& id, int reqId, const LyricCandidate& candidate, bool chainOnFailure) {
     const QString arl = deezerArl();
     if (arl.isEmpty()) {
         finishProviderFailure(LyricsBackend::Deezer, reqId, chainOnFailure);
@@ -1802,12 +1802,12 @@ void Lyrics::fetchDeezerLyricsById(
 
                 const QJsonDocument lyricsDoc = QJsonDocument::fromJson(lyricsReply->readAll());
                 const QJsonObject lyrics = lyricsDoc.object()
-                                             .value(u"data"_s)
-                                             .toObject()
-                                             .value(u"track"_s)
-                                             .toObject()
-                                             .value(u"lyrics"_s)
-                                             .toObject();
+                                               .value(u"data"_s)
+                                               .toObject()
+                                               .value(u"track"_s)
+                                               .toObject()
+                                               .value(u"lyrics"_s)
+                                               .toObject();
                 QVector<LyricLine> lines = parseDeezerLines(lyrics.value(u"synchronizedLines"_s).toArray());
                 if (lines.isEmpty()) {
                     const QJsonArray wordLines = lyrics.value(u"synchronizedWordByWordLines"_s).toArray();
@@ -1919,8 +1919,7 @@ void Lyrics::fetchMusixmatchLyricsById(
     });
 }
 
-void Lyrics::fetchSpicyLyricsById(
-    const QString& id, int reqId, const LyricCandidate& candidate, bool chainOnFailure) {
+void Lyrics::fetchSpicyLyricsById(const QString& id, int reqId, const LyricCandidate& candidate, bool chainOnFailure) {
     ensureSpotifyAccessToken(reqId, [this, id, reqId, candidate, chainOnFailure](const QString& token) {
         if (reqId != m_currentRequestId) {
             return;
@@ -2166,9 +2165,8 @@ QUrl Lyrics::netEaseApiUrl(const QString& endpoint) const {
     return QUrl(base + QLatin1Char('/') + path);
 }
 
-QUrl Lyrics::musixmatchDesktopUrl(
-    const QString& endpoint, const QString& userToken, const QList<QPair<QString, QString>>& extraParams,
-    const QString& signKey) {
+QUrl Lyrics::musixmatchDesktopUrl(const QString& endpoint, const QString& userToken,
+    const QList<QPair<QString, QString>>& extraParams, const QString& signKey) {
     if (m_musixmatchDesktopGuid.isEmpty()) {
         m_musixmatchDesktopGuid = QUuid::createUuid().toString(QUuid::WithoutBraces);
     }
@@ -2220,8 +2218,7 @@ void Lyrics::ensureMusixmatchDesktopToken(int reqId, std::function<void(const QS
             }
 
             m_musixmatchDesktopUserToken = token;
-            m_musixmatchDesktopTokenExpiresAtMs =
-                QDateTime::currentMSecsSinceEpoch() + kMusixmatchDesktopTokenTtlMs;
+            m_musixmatchDesktopTokenExpiresAtMs = QDateTime::currentMSecsSinceEpoch() + kMusixmatchDesktopTokenTtlMs;
             callback(token);
         });
     });
@@ -2308,7 +2305,8 @@ void Lyrics::ensureSpotifyAccessToken(int reqId, std::function<void(const QStrin
     QNetworkRequest req(QUrl(u"https://accounts.spotify.com/api/token"_s));
     req.setRawHeader("Accept"_ba, "application/json"_ba);
     req.setRawHeader("Content-Type"_ba, "application/x-www-form-urlencoded"_ba);
-    req.setRawHeader("Authorization"_ba, "Basic "_ba + (clientId + QLatin1Char(':') + clientSecret).toUtf8().toBase64());
+    req.setRawHeader(
+        "Authorization"_ba, "Basic "_ba + (clientId + QLatin1Char(':') + clientSecret).toUtf8().toBase64());
 
     auto* reply = m_nam->post(req, "grant_type=client_credentials"_ba);
     trackReply(reqId, reply);

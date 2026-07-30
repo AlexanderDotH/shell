@@ -18,8 +18,8 @@ Scope {
     property bool visible: true
 
     Variants {
-        // Rebinds when monitors hotplug — no cached screen list or expected count.
-        model: Quickshell.screens.filter(s => s && s.name)
+        // Rebinds when monitors hotplug without retaining null/dangling placeholders.
+        model: Screens.validScreens
 
         StyledWindow {
             required property ShellScreen modelData

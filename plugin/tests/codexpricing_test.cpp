@@ -64,7 +64,8 @@ int main() {
         ok &= expect(spark->pricedModel == QStringLiteral("gpt-5.3-codex"), "Codex Spark maps to GPT-5.3-Codex");
     }
 
-    ok &= expect(!pricingForModel(QStringLiteral("codex-auto-review")).has_value(), "unpublished models remain unpriced");
+    ok &=
+        expect(!pricingForModel(QStringLiteral("codex-auto-review")).has_value(), "unpublished models remain unpriced");
 
     if (sol.has_value()) {
         const qreal cost = calculateCost(*sol, 2'000'000, 500'000, 100'000);

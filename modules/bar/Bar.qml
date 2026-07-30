@@ -171,10 +171,13 @@ ColumnLayout {
             }
             DelegateChoice {
                 roleValue: "codexUsage"
-                delegate: WrappedLoader {
-                    visible: !root.fullscreen
-                    loadActive: Config.bar.codexUsage.enabled
-                    sourceComponent: CodexUsage {}
+                delegate: EntryWrapper {
+                    Loader {
+                        active: Config.bar.codexUsage.enabled
+                        asynchronous: true
+                        visible: active && !root.fullscreen
+                        sourceComponent: CodexUsage {}
+                    }
                 }
             }
             DelegateChoice {

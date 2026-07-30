@@ -8,147 +8,62 @@ import Caelestia.Services
 import qs.components.controls
 import qs.services
 import qs.modules.nexus.common
+import qs.modules.nexus.pages.services
 
 PageBase {
     id: root
 
-    title: qsTr("Lyrics")
-    isSubPage: true
-
     // Online fallback order in Auto: LRCLIB -> Deezer -> Musixmatch -> Spicy Lyrics -> NetEase
     readonly property list<MenuItem> lyricsBackendItems: [
         MenuItem {
-            text: qsTr("Auto")
             icon: "auto_awesome"
+            text: qsTr("Auto")
             value: LyricsBackend.Auto
         },
         MenuItem {
-            text: qsTr("Local")
             icon: "folder"
+            text: qsTr("Local")
             value: LyricsBackend.Local
         },
         MenuItem {
-            text: "LRCLIB"
             icon: "lyrics"
+            text: "LRCLIB"
             value: LyricsBackend.LRCLIB
         },
         MenuItem {
-            text: "Deezer"
             icon: "album"
+            text: "Deezer"
             value: LyricsBackend.Deezer
         },
         MenuItem {
-            text: "Musixmatch"
             icon: "lyrics"
+            text: "Musixmatch"
             value: LyricsBackend.Musixmatch
         },
         MenuItem {
-            text: "Spicy Lyrics"
             icon: "graphic_eq"
+            text: "Spicy Lyrics"
             value: LyricsBackend.SpicyLyrics
         },
         MenuItem {
-            text: "NetEase"
             icon: "cloud"
+            text: "NetEase"
             value: LyricsBackend.NetEase
         }
     ]
+
+    function activeLyricsCandidateItem(items: var): var {
+        for (const item of items) {
+            if (lyricsCandidateMatches(item.value, Lyrics.selectedCandidate))
+                return item;
+        }
+        return null;
+    }
 
     function forEachDesktopLyricsConfig(callback: var): void {
         callback(GlobalConfig.background.desktopLyrics);
         for (const screen of Screens.screens)
             callback(GlobalConfig.forScreen(screen.name).background.desktopLyrics);
-    }
-
-    function setDesktopLyricsEnabled(enabled: bool): void {
-        forEachDesktopLyricsConfig(config => {
-            config.enabled = enabled;
-        });
-        if (enabled)
-            Lyrics.refresh();
-    }
-
-    function setDesktopLyricsScale(scale: real): void {
-        forEachDesktopLyricsConfig(config => {
-            config.scale = scale;
-        });
-    }
-
-    function setDesktopLyricsShowWhilePaused(showWhilePaused: bool): void {
-        forEachDesktopLyricsConfig(config => {
-            config.showWhilePaused = showWhilePaused;
-        });
-    }
-
-    function setDesktopLyricsExcludedScreens(excludedScreens: var): void {
-        forEachDesktopLyricsConfig(config => {
-            config.excludedScreens = excludedScreens;
-        });
-    }
-
-    function setDesktopLyricsMonitorEnabled(screenName: string, enabled: bool): void {
-        const excludedScreens = (GlobalConfig.background.desktopLyrics.excludedScreens ?? []).slice();
-        const index = excludedScreens.indexOf(screenName);
-        if (enabled && index >= 0)
-            excludedScreens.splice(index, 1);
-        else if (!enabled && index < 0)
-            excludedScreens.push(screenName);
-
-        setDesktopLyricsExcludedScreens(excludedScreens);
-    }
-
-    function setDesktopLyricsBackgroundEnabled(enabled: bool): void {
-        forEachDesktopLyricsConfig(config => {
-            config.background.enabled = enabled;
-        });
-    }
-
-    function setDesktopLyricsBackgroundBlur(blur: bool): void {
-        forEachDesktopLyricsConfig(config => {
-            config.background.blur = blur;
-        });
-    }
-
-    function setDesktopLyricsBackgroundOpacity(opacity: real): void {
-        forEachDesktopLyricsConfig(config => {
-            config.background.opacity = opacity;
-        });
-    }
-
-    function setLyricsBackend(backend: int): void {
-        if (backend < 0)
-            return;
-
-        Lyrics.preferredBackend = backend;
-        Lyrics.refresh();
-    }
-
-    function activeLyricsBackendItem(): MenuItem {
-        for (const item of lyricsBackendItems) {
-            if (item.value === Lyrics.preferredBackend)
-                return item;
-        }
-        return lyricsBackendItems[0];
-    }
-
-    function normalizedValue(value: real, from: real, to: real): real {
-        return Math.max(0, Math.min((value - from) / (to - from), 1));
-    }
-
-    function lyricsBackendStatus(): string {
-        if (Lyrics.loading)
-            return qsTr("Loading via %1").arg(LyricsBackend.toString(Lyrics.backend));
-        if (Lyrics.hasLyrics)
-            return qsTr("Using %1").arg(LyricsBackend.toString(Lyrics.backend));
-        return qsTr("Provider: %1").arg(LyricsBackend.toString(Lyrics.preferredBackend));
-    }
-
-    function lyricsTrackStatus(): string {
-        if (!Players.active)
-            return qsTr("No active player");
-        if (Lyrics.trackArtist || Lyrics.trackTitle)
-            return qsTr("%1 - %2").arg(Lyrics.trackArtist || qsTr("Unknown artist")).arg(Lyrics.trackTitle || qsTr("Unknown title"));
-        return qsTr("Waiting for track metadata");
     }
 
     function lyricsBackendIcon(backend: int): string {
@@ -171,6 +86,14 @@ PageBase {
         }
     }
 
+    function lyricsBackendStatus(): string {
+        if (Lyrics.loading)
+            return qsTr("Loading via %1").arg(LyricsBackend.toString(Lyrics.backend));
+        if (Lyrics.hasLyrics)
+            return qsTr("Using %1").arg(LyricsBackend.toString(Lyrics.backend));
+        return qsTr("Provider: %1").arg(LyricsBackend.toString(Lyrics.preferredBackend));
+    }
+
     function lyricsCandidateLabel(candidate: var): string {
         if (!candidate)
             return qsTr("No match");
@@ -185,14 +108,6 @@ PageBase {
         return !!a && !!b && a.backend === b.backend && a.id === b.id;
     }
 
-    function activeLyricsCandidateItem(items: var): var {
-        for (const item of items) {
-            if (lyricsCandidateMatches(item.value, Lyrics.selectedCandidate))
-                return item;
-        }
-        return null;
-    }
-
     function lyricsCandidateStatus(candidateItems: var): string {
         if (Lyrics.loading)
             return qsTr("Searching matches");
@@ -203,11 +118,89 @@ PageBase {
         return qsTr("No matches available");
     }
 
+    function lyricsTrackStatus(): string {
+        if (!Players.active)
+            return qsTr("No active player");
+        if (Lyrics.trackArtist || Lyrics.trackTitle)
+            return qsTr("%1 - %2").arg(Lyrics.trackArtist || qsTr("Unknown artist")).arg(Lyrics.trackTitle || qsTr("Unknown title"));
+        return qsTr("Waiting for track metadata");
+    }
+
+    function normalizedValue(value: real, from: real, to: real): real {
+        return Math.max(0, Math.min((value - from) / (to - from), 1));
+    }
+
+    function setDesktopLyricsBackgroundBlur(blur: bool): void {
+        forEachDesktopLyricsConfig(config => {
+            config.background.blur = blur;
+        });
+    }
+
+    function setDesktopLyricsBackgroundEnabled(enabled: bool): void {
+        forEachDesktopLyricsConfig(config => {
+            config.background.enabled = enabled;
+        });
+    }
+
+    function setDesktopLyricsBackgroundOpacity(opacity: real): void {
+        forEachDesktopLyricsConfig(config => {
+            config.background.opacity = opacity;
+        });
+    }
+
+    function setDesktopLyricsEnabled(enabled: bool): void {
+        forEachDesktopLyricsConfig(config => {
+            config.enabled = enabled;
+        });
+        if (enabled)
+            Lyrics.refresh();
+    }
+
+    function setDesktopLyricsExcludedScreens(excludedScreens: var): void {
+        forEachDesktopLyricsConfig(config => {
+            config.excludedScreens = excludedScreens;
+        });
+    }
+
+    function setDesktopLyricsMonitorEnabled(screenName: string, enabled: bool): void {
+        const excludedScreens = (GlobalConfig.background.desktopLyrics.excludedScreens ?? []).slice();
+        const index = excludedScreens.indexOf(screenName);
+        if (enabled && index >= 0)
+            excludedScreens.splice(index, 1);
+        else if (!enabled && index < 0)
+            excludedScreens.push(screenName);
+
+        setDesktopLyricsExcludedScreens(excludedScreens);
+    }
+
+    function setDesktopLyricsScale(scale: real): void {
+        forEachDesktopLyricsConfig(config => {
+            config.scale = scale;
+        });
+    }
+
+    function setDesktopLyricsShowWhilePaused(showWhilePaused: bool): void {
+        forEachDesktopLyricsConfig(config => {
+            config.showWhilePaused = showWhilePaused;
+        });
+    }
+
+    function setLyricsBackend(backend: int): void {
+        if (backend < 0)
+            return;
+
+        Lyrics.preferredBackend = backend;
+        Lyrics.refresh();
+    }
+
+    isSubPage: true
+    title: qsTr("Lyrics")
+
     ColumnLayout {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        width: root.cappedWidth
         spacing: Tokens.spacing.extraSmall / 2
+        width: root.cappedWidth
 
         Variants {
             id: lyricsCandidateVariants
@@ -217,10 +210,10 @@ PageBase {
             MenuItem {
                 required property var modelData
 
-                text: root.lyricsCandidateLabel(modelData)
-                icon: root.lyricsCandidateMatches(modelData, Lyrics.selectedCandidate) ? "check" : root.lyricsBackendIcon(modelData.backend)
                 activeIcon: root.lyricsBackendIcon(modelData.backend)
                 activeText: LyricsBackend.toString(modelData.backend)
+                icon: root.lyricsCandidateMatches(modelData, Lyrics.selectedCandidate) ? "check" : root.lyricsBackendIcon(modelData.backend)
+                text: root.lyricsCandidateLabel(modelData)
                 value: modelData
             }
         }
@@ -231,32 +224,35 @@ PageBase {
         }
 
         SelectRow {
+            active: root.lyricsBackendItems.find(item => item.value === Lyrics.preferredBackend) ?? root.lyricsBackendItems[0]
             first: true
             label: qsTr("Provider")
-            subtext: root.lyricsBackendStatus()
             menuItems: root.lyricsBackendItems
-            active: root.activeLyricsBackendItem()
+            subtext: root.lyricsBackendStatus()
+
             onSelected: item => root.setLyricsBackend(item.value)
         }
 
         ToggleRow {
-            text: qsTr("Async Auto search")
-            subtext: qsTr("Wait for every online provider, then keep the first in order")
             checked: GlobalConfig.services.lyricsAsyncProviders
-            onToggled: checked => {
+            subtext: qsTr("Wait for every online provider, then keep the first in order")
+            text: qsTr("Async Auto search")
+
+            onToggled: {
                 GlobalConfig.services.lyricsAsyncProviders = checked;
                 Lyrics.refresh();
             }
         }
 
         SelectRow {
-            label: qsTr("Match")
-            subtext: root.lyricsCandidateStatus(lyricsCandidateVariants.instances)
-            menuItems: lyricsCandidateVariants.instances
             active: root.activeLyricsCandidateItem(lyricsCandidateVariants.instances)
+            enabled: lyricsCandidateVariants.instances.length > 0
             fallbackIcon: Lyrics.loading ? "hourglass_top" : "lyrics"
             fallbackText: Lyrics.loading ? qsTr("Loading") : qsTr("Auto")
-            enabled: lyricsCandidateVariants.instances.length > 0
+            label: qsTr("Match")
+            menuItems: lyricsCandidateVariants.instances
+            subtext: root.lyricsCandidateStatus(lyricsCandidateVariants.instances)
+
             onSelected: item => {
                 Lyrics.selectedCandidate = item.value;
             }
@@ -271,9 +267,10 @@ PageBase {
 
         LyricsTextField {
             label: qsTr("Local folder")
-            placeholder: "~/Music/Lyrics"
             leadingIcon: "folder"
+            placeholder: "~/Music/Lyrics"
             text: GlobalConfig.paths.lyricsDir
+
             onCommitted: value => {
                 GlobalConfig.paths.lyricsDir = value;
                 Lyrics.refresh();
@@ -281,10 +278,11 @@ PageBase {
         }
 
         NavRow {
-            last: true
             icon: "refresh"
             label: qsTr("Refresh lyrics")
+            last: true
             status: root.lyricsBackendStatus()
+
             onClicked: Lyrics.refresh()
         }
 
@@ -295,9 +293,10 @@ PageBase {
         LyricsTextField {
             first: true
             label: qsTr("NetEase API base")
-            placeholder: "https://music.xianqiao.wang/neteaseapiv2"
             leadingIcon: "cloud"
+            placeholder: "https://music.xianqiao.wang/neteaseapiv2"
             text: GlobalConfig.services.lyricsNetEaseApiBase
+
             onCommitted: value => {
                 GlobalConfig.services.lyricsNetEaseApiBase = value;
                 Lyrics.refresh();
@@ -309,6 +308,7 @@ PageBase {
             leadingIcon: "album"
             password: true
             text: GlobalConfig.services.lyricsDeezerArl
+
             onCommitted: value => {
                 GlobalConfig.services.lyricsDeezerArl = value;
                 Lyrics.refresh();
@@ -320,6 +320,7 @@ PageBase {
             leadingIcon: "key"
             password: true
             text: GlobalConfig.services.lyricsSpotifyAccessToken
+
             onCommitted: value => {
                 GlobalConfig.services.lyricsSpotifyAccessToken = value;
                 Lyrics.refresh();
@@ -330,6 +331,7 @@ PageBase {
             label: qsTr("Spotify client ID")
             leadingIcon: "badge"
             text: GlobalConfig.services.lyricsSpotifyClientId
+
             onCommitted: value => {
                 GlobalConfig.services.lyricsSpotifyClientId = value;
                 Lyrics.refresh();
@@ -341,6 +343,7 @@ PageBase {
             leadingIcon: "vpn_key"
             password: true
             text: GlobalConfig.services.lyricsSpotifyClientSecret
+
             onCommitted: value => {
                 GlobalConfig.services.lyricsSpotifyClientSecret = value;
                 Lyrics.refresh();
@@ -352,50 +355,56 @@ PageBase {
         }
 
         ToggleRow {
-            first: true
-            text: qsTr("Show desktop lyrics")
-            subtext: Lyrics.hasLyrics ? root.lyricsTrackStatus() : qsTr("Synced lyrics over the wallpaper")
             checked: GlobalConfig.background.desktopLyrics.enabled
+            first: true
+            subtext: Lyrics.hasLyrics ? root.lyricsTrackStatus() : qsTr("Synced lyrics over the wallpaper")
+            text: qsTr("Show desktop lyrics")
+
             onToggled: root.setDesktopLyricsEnabled(checked)
         }
 
         ToggleRow {
-            text: qsTr("Show while paused")
             checked: GlobalConfig.background.desktopLyrics.showWhilePaused
             enabled: GlobalConfig.background.desktopLyrics.enabled
+            text: qsTr("Show while paused")
+
             onToggled: root.setDesktopLyricsShowWhilePaused(checked)
         }
 
         SliderRow {
+            enabled: GlobalConfig.background.desktopLyrics.enabled
             icon: "format_size"
             label: qsTr("Text scale")
             value: root.normalizedValue(GlobalConfig.background.desktopLyrics.scale, 0.6, 2)
             valueLabel: `${Math.round(GlobalConfig.background.desktopLyrics.scale * 100)}%`
-            enabled: GlobalConfig.background.desktopLyrics.enabled
+
             onMoved: v => root.setDesktopLyricsScale(Math.round((0.6 + v * 1.4) * 100) / 100)
         }
 
         ToggleRow {
-            text: qsTr("Background plate")
             checked: GlobalConfig.background.desktopLyrics.background.enabled
             enabled: GlobalConfig.background.desktopLyrics.enabled
+            text: qsTr("Background plate")
+
             onToggled: root.setDesktopLyricsBackgroundEnabled(checked)
         }
 
         ToggleRow {
-            text: qsTr("Blur behind lyrics")
             checked: GlobalConfig.background.desktopLyrics.background.blur
             enabled: GlobalConfig.background.desktopLyrics.enabled && GlobalConfig.background.desktopLyrics.background.enabled
+            text: qsTr("Blur behind lyrics")
+
             onToggled: root.setDesktopLyricsBackgroundBlur(checked)
         }
 
         SliderRow {
+            enabled: GlobalConfig.background.desktopLyrics.enabled && GlobalConfig.background.desktopLyrics.background.enabled
             icon: "opacity"
             label: qsTr("Plate opacity")
+            last: Screens.screens.length === 0
             value: GlobalConfig.background.desktopLyrics.background.opacity
             valueLabel: `${Math.round(GlobalConfig.background.desktopLyrics.background.opacity * 100)}%`
-            enabled: GlobalConfig.background.desktopLyrics.enabled && GlobalConfig.background.desktopLyrics.background.enabled
-            last: Screens.screens.length === 0
+
             onMoved: v => root.setDesktopLyricsBackgroundOpacity(Math.round(v * 100) / 100)
         }
 
@@ -403,41 +412,15 @@ PageBase {
             model: Screens.screens
 
             ToggleRow {
-                required property var modelData
                 required property int index
+                required property var modelData
 
-                text: qsTr("Show on %1").arg(modelData.name)
                 checked: !(GlobalConfig.background.desktopLyrics.excludedScreens ?? []).includes(modelData.name)
                 enabled: GlobalConfig.background.desktopLyrics.enabled
                 last: index === Screens.screens.length - 1
+                text: qsTr("Show on %1").arg(modelData.name)
+
                 onToggled: root.setDesktopLyricsMonitorEnabled(modelData.name, checked)
-            }
-        }
-    }
-
-    component LyricsTextField: M3TextField {
-        id: fieldRoot
-
-        property bool trimValue: true
-        property bool first: false
-
-        signal committed(string value)
-
-        Layout.fillWidth: true
-        Layout.topMargin: first ? 0 : Tokens.spacing.extraSmall
-        inputMethodHints: Qt.ImhNoPredictiveText
-
-        function commit(): void {
-            const value = trimValue ? text.trim() : text;
-            fieldRoot.committed(value);
-        }
-
-        onAccepted: commit()
-
-        Connections {
-            target: fieldRoot.field
-            function onEditingFinished(): void {
-                fieldRoot.commit();
             }
         }
     }

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "codexresetcredits.hpp"
 #include "codexratewindows.hpp"
+#include "codexresetcredits.hpp"
 #include "service.hpp"
 
 #include <qbytearray.h>
@@ -123,10 +123,10 @@ private:
     QString m_workspaceLabel;
     QVariantMap m_fiveHour;
     QVariantMap m_weekly;
-    QVariantMap m_rateLimitResets {
+    QVariantMap m_rateLimitResets{
         { QStringLiteral("state"), QStringLiteral("loading") },
         { QStringLiteral("availableCount"), 0 },
-        { QStringLiteral("credits"), QVariantList {} },
+        { QStringLiteral("credits"), QVariantList{} },
     };
     QVariantMap m_monthlyTokens;
     qreal m_monthlyApiDollars = 0.0;

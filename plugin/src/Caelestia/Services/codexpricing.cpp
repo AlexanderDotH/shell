@@ -9,7 +9,7 @@ namespace {
 constexpr qreal kPerMillion = 1'000'000.0;
 
 const QHash<QString, ModelPricing>& pricingCatalog() {
-    static const QHash<QString, ModelPricing> catalog {
+    static const QHash<QString, ModelPricing> catalog{
         // Current frontier models.
         { QStringLiteral("gpt-5.6-sol"), { QStringLiteral("gpt-5.6-sol"), 5.0, 0.5, 30.0 } },
         { QStringLiteral("gpt-5.6-terra"), { QStringLiteral("gpt-5.6-terra"), 2.5, 0.25, 15.0 } },
@@ -41,7 +41,7 @@ const QHash<QString, ModelPricing>& pricingCatalog() {
 }
 
 const QHash<QString, QString>& modelAliases() {
-    static const QHash<QString, QString> aliases {
+    static const QHash<QString, QString> aliases{
         { QStringLiteral("gpt-5.6"), QStringLiteral("gpt-5.6-sol") },
         { QStringLiteral("gpt-5.3-codex-spark"), QStringLiteral("gpt-5.3-codex") },
     };
@@ -81,9 +81,9 @@ std::optional<ModelPricing> pricingForModel(const QString& rawModel) {
 qreal calculateCost(const ModelPricing& pricing, quint64 input, quint64 cachedInput, quint64 output) {
     const quint64 uncachedInput = input > cachedInput ? input - cachedInput : 0;
     const qreal cachedRate = pricing.hasCachedInput ? pricing.cachedInput : pricing.input;
-    return (static_cast<qreal>(uncachedInput) * pricing.input + static_cast<qreal>(cachedInput) * cachedRate
-               + static_cast<qreal>(output) * pricing.output)
-        / kPerMillion;
+    return (static_cast<qreal>(uncachedInput) * pricing.input + static_cast<qreal>(cachedInput) * cachedRate +
+               static_cast<qreal>(output) * pricing.output) /
+           kPerMillion;
 }
 
 } // namespace caelestia::services::codexpricing

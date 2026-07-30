@@ -1,7 +1,6 @@
 pragma ComponentBehavior: Bound
 
 import Quickshell
-import qs.services
 
 Scope {
     SplashScreens {

@@ -17,8 +17,8 @@ public:
 
     Q_INVOKABLE void get(
         const QUrl& url, QJSValue callback, QJSValue onError = QJSValue(), QJSValue headers = QJSValue()) const;
-    Q_INVOKABLE void post(const QUrl& url, const QString& body, QJSValue callback,
-        QJSValue onError = QJSValue(), QJSValue headers = QJSValue()) const;
+    Q_INVOKABLE void post(const QUrl& url, const QString& body, QJSValue callback, QJSValue onError = QJSValue(),
+        QJSValue headers = QJSValue()) const;
     Q_INVOKABLE QString hmacSha1Base64(const QString& message, const QString& key) const;
     Q_INVOKABLE void resetCookies() const;
 

@@ -73,12 +73,7 @@ Item {
         property real vy: root.signedRand(root.minSpeed, root.maxSpeed)
         property real vr: root.rand(root.minRotSpeed, root.maxRotSpeed)
         readonly property int colourIdx: Math.floor(Math.random() * 4)
-        readonly property var colours: [
-            root.accentColour,
-            Qt.hsla(root.accentColour.hslHue, Math.max(0.36, root.accentColour.hslSaturation * 0.8), Colours.light ? 0.72 : 0.42, 1),
-            Colours.palette.m3secondaryContainer,
-            Colours.palette.m3outlineVariant
-        ]
+        readonly property var colours: [root.accentColour, Qt.hsla(root.accentColour.hslHue, Math.max(0.36, root.accentColour.hslSaturation * 0.8), Colours.light ? 0.72 : 0.42, 1), Colours.palette.m3secondaryContainer, Colours.palette.m3outlineVariant]
 
         implicitSize: root.minSize + (index / root.count) * (root.maxSize - root.minSize)
         shape: root.shapePool[Math.floor(Math.random() * root.shapePool.length)]

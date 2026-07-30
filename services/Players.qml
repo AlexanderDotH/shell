@@ -13,46 +13,36 @@ import qs.utils
 Singleton {
     id: root
 
-    readonly property list<MprisPlayer> list: Mpris.players.values
     readonly property MprisPlayer active: props.manualActive ?? list.find(p => getIdentity(p) === GlobalConfig.services.defaultPlayer) ?? list[0] ?? null
-    readonly property string artCacheDir: `${Paths.imagecache}/media`
-    property alias manualActive: props.manualActive
     property string activeArtUrl
-    property string pendingArtUrl
-    property string downloadingArtUrl
+    readonly property string artCacheDir: `${Paths.imagecache}/media`
     property string downloadingArtPath
+    property string downloadingArtUrl
 
     // Dedup key for progressive metadata (e.g. mpv-mpris/yt-dlp player fills title then artist later).
     property string lastNowPlayingKey: ""
+    readonly property list<MprisPlayer> list: Mpris.players.values
+    property alias manualActive: props.manualActive
+    property string pendingArtUrl
 
-    function syncLyricsTrack(): void {
-        const active = root.active;
-        if (active && (active.trackArtist || active.trackTitle)) {
-            Lyrics.setTrack(active.trackArtist, active.trackTitle, active.trackAlbum, active.length);
-        } else {
-            Lyrics.clearTrack();
+    function cachedArtPath(url: string): string {
+        return `${artCacheDir}/${hashArtUrl(url)}.jpg`;
+    }
+
+    function finishArtDownload(exitCode: int): void {
+        const completedUrl = downloadingArtUrl;
+        const completedPath = downloadingArtPath;
+        downloadingArtUrl = "";
+        downloadingArtPath = "";
+
+        if (exitCode === 0 && completedUrl === pendingArtUrl) {
+            activeArtUrl = normaliseArtUrl(completedPath);
+        } else if (exitCode !== 0 && completedUrl === pendingArtUrl) {
+            activeArtUrl = completedUrl;
         }
-    }
 
-    function normaliseArtUrl(value): string {
-        const url = String(value ?? "").trim();
-        if (!url)
-            return "";
-        if (url.startsWith("/") || url.startsWith("~"))
-            return encodeURI(`file://${url.replace(/^~/, Quickshell.env("HOME"))}`);
-        return encodeURI(url);
-    }
-
-    function youtubeVideoId(url): string {
-        const match = url.match(/(?:[?&]v=|youtu\.be\/|\/embed\/|\/shorts\/|\/live\/)([A-Za-z0-9_-]{11})/);
-        return match?.[1] ?? "";
-    }
-
-    function getIdentity(player: MprisPlayer): string {
-        if (!player)
-            return "";
-        const alias = GlobalConfig.services.playerAliases.find(a => a.from === player.identity);
-        return alias?.to ?? player.identity;
+        if (pendingArtUrl && pendingArtUrl !== completedUrl)
+            Qt.callLater(startArtDownload);
     }
 
     function getArtUrl(player: MprisPlayer): string {
@@ -73,8 +63,11 @@ Singleton {
         return "";
     }
 
-    function isRemoteArtUrl(url: string): bool {
-        return /^https?:\/\//i.test(url);
+    function getIdentity(player: MprisPlayer): string {
+        if (!player)
+            return "";
+        const alias = GlobalConfig.services.playerAliases.find(a => a.from === player.identity);
+        return alias?.to ?? player.identity;
     }
 
     function hashArtUrl(url: string): string {
@@ -91,8 +84,60 @@ Singleton {
         return (h2 >>> 0).toString(16).padStart(8, "0") + (h1 >>> 0).toString(16).padStart(8, "0");
     }
 
-    function cachedArtPath(url: string): string {
-        return `${artCacheDir}/${hashArtUrl(url)}.jpg`;
+    function isRemoteArtUrl(url: string): bool {
+        return /^https?:\/\//i.test(url);
+    }
+
+    // Quickshell only emits postTrackChanged when trackid/url/title change, so late
+    // artist updates (common with mpv-mpris + yt-dlp player) never retrigger it. Watch
+    // title/artist too and toast once both are usable.
+    function maybeToastNowPlaying(): void {
+        if (!GlobalConfig.utilities.toasts.nowPlaying)
+            return;
+
+        const player = root.active;
+        if (!player)
+            return;
+
+        const title = player.trackTitle ?? "";
+        const artist = player.trackArtist ?? "";
+        if (!title || !artist)
+            return;
+
+        const key = `${getIdentity(player)}\0${player.uniqueId}\0${title}\0${artist}`;
+        if (key === lastNowPlayingKey)
+            return;
+
+        lastNowPlayingKey = key;
+        Toaster.toast(qsTr("Now Playing"), qsTr("%1 - %2").arg(artist).arg(title), "music_note");
+    }
+
+    function normaliseArtUrl(value): string {
+        const url = String(value ?? "").trim();
+        if (!url)
+            return "";
+        if (url.startsWith("/") || url.startsWith("~"))
+            return encodeURI(`file://${url.replace(/^~/, Quickshell.env("HOME"))}`);
+        return encodeURI(url);
+    }
+
+    function startArtDownload(): void {
+        if (!pendingArtUrl || artDownloadProc.running)
+            return;
+
+        downloadingArtUrl = pendingArtUrl;
+        downloadingArtPath = cachedArtPath(downloadingArtUrl);
+        artDownloadProc.command = ["sh", "-c", "mkdir -p \"$1\" && { [ -s \"$2\" ] || { tmp=\"$2.tmp.$$\"; curl -fsSL --globoff --max-time 20 --retry 1 --user-agent \"caelestia-shell\" -o \"$tmp\" \"$3\" && mv \"$tmp\" \"$2\"; }; }", "caelestia-art", artCacheDir, downloadingArtPath, downloadingArtUrl];
+        artDownloadProc.running = true;
+    }
+
+    function syncLyricsTrack(): void {
+        const active = root.active;
+        if (active && (active.trackArtist || active.trackTitle)) {
+            Lyrics.setTrack(active.trackArtist, active.trackTitle, active.trackAlbum, active.length);
+        } else {
+            Lyrics.clearTrack();
+        }
     }
 
     function updateActiveArtUrl(): void {
@@ -120,56 +165,15 @@ Singleton {
         startArtDownload();
     }
 
-    function startArtDownload(): void {
-        if (!pendingArtUrl || artDownloadProc.running)
-            return;
-
-        downloadingArtUrl = pendingArtUrl;
-        downloadingArtPath = cachedArtPath(downloadingArtUrl);
-        artDownloadProc.command = ["sh", "-c", "mkdir -p \"$1\" && { [ -s \"$2\" ] || { tmp=\"$2.tmp.$$\"; curl -fsSL --globoff --max-time 20 --retry 1 --user-agent \"caelestia-shell\" -o \"$tmp\" \"$3\" && mv \"$tmp\" \"$2\"; }; }", "caelestia-art", artCacheDir, downloadingArtPath, downloadingArtUrl];
-        artDownloadProc.running = true;
+    function youtubeVideoId(url): string {
+        const match = url.match(/(?:[?&]v=|youtu\.be\/|\/embed\/|\/shorts\/|\/live\/)([A-Za-z0-9_-]{11})/);
+        return match?.[1] ?? "";
     }
 
-    function finishArtDownload(exitCode: int): void {
-        const completedUrl = downloadingArtUrl;
-        const completedPath = downloadingArtPath;
-        downloadingArtUrl = "";
-        downloadingArtPath = "";
-
-        if (exitCode === 0 && completedUrl === pendingArtUrl) {
-            activeArtUrl = normaliseArtUrl(completedPath);
-        } else if (exitCode !== 0 && completedUrl === pendingArtUrl) {
-            activeArtUrl = completedUrl;
-        }
-
-        if (pendingArtUrl && pendingArtUrl !== completedUrl)
-            Qt.callLater(startArtDownload);
+    Component.onCompleted: {
+        Qt.callLater(syncLyricsTrack);
+        Qt.callLater(updateActiveArtUrl);
     }
-
-    // Quickshell only emits postTrackChanged when trackid/url/title change, so late
-    // artist updates (common with mpv-mpris + yt-dlp player) never retrigger it. Watch
-    // title/artist too and toast once both are usable.
-    function maybeToastNowPlaying(): void {
-        if (!GlobalConfig.utilities.toasts.nowPlaying)
-            return;
-
-        const player = root.active;
-        if (!player)
-            return;
-
-        const title = player.trackTitle ?? "";
-        const artist = player.trackArtist ?? "";
-        if (!title || !artist)
-            return;
-
-        const key = `${getIdentity(player)}\0${player.uniqueId}\0${title}\0${artist}`;
-        if (key === lastNowPlayingKey)
-            return;
-
-        lastNowPlayingKey = key;
-        Toaster.toast(qsTr("Now Playing"), qsTr("%1 - %2").arg(artist).arg(title), "music_note");
-    }
-
     onActiveChanged: {
         lastNowPlayingKey = "";
         Qt.callLater(syncLyricsTrack);
@@ -177,9 +181,30 @@ Singleton {
     }
 
     Connections {
+        function onLengthChanged(): void {
+            root.syncLyricsTrack();
+        }
+
+        function onMetadataChanged(): void {
+            root.updateActiveArtUrl();
+        }
+
         function onPostTrackChanged(): void {
             root.syncLyricsTrack();
             root.updateActiveArtUrl();
+            root.maybeToastNowPlaying();
+        }
+
+        function onTrackAlbumChanged(): void {
+            root.syncLyricsTrack();
+        }
+
+        function onTrackArtUrlChanged(): void {
+            root.updateActiveArtUrl();
+        }
+
+        function onTrackArtistChanged(): void {
+            root.syncLyricsTrack();
             root.maybeToastNowPlaying();
         }
 
@@ -188,26 +213,8 @@ Singleton {
             root.maybeToastNowPlaying();
         }
 
-        function onTrackArtistChanged(): void {
-            root.syncLyricsTrack();
-            root.maybeToastNowPlaying();
-        }
-
-        function onMetadataChanged() {
-            root.updateActiveArtUrl();
-        }
-
-        function onTrackArtUrlChanged() {
-            root.updateActiveArtUrl();
-        }
-
         ignoreUnknownSignals: true
         target: root.active
-    }
-
-    Component.onCompleted: {
-        Qt.callLater(syncLyricsTrack);
-        Qt.callLater(updateActiveArtUrl);
     }
 
     PersistentProperties {
@@ -221,14 +228,17 @@ Singleton {
     Process {
         id: artDownloadProc
 
-        onExited: code => root.finishArtDownload(code) // qmllint disable signal-handler-parameters
+        // qmllint disable signal-handler-parameters
+        onExited: code => root.finishArtDownload(code)
+        // qmllint enable signal-handler-parameters
     }
 
     // qmllint disable unresolved-type
     CustomShortcut {
+        description: "Toggle media playback"
         // qmllint enable unresolved-type
         name: "mediaToggle"
-        description: "Toggle media playback"
+
         onPressed: {
             const active = root.active;
             if (active && active.canTogglePlaying)
@@ -238,9 +248,10 @@ Singleton {
 
     // qmllint disable unresolved-type
     CustomShortcut {
+        description: "Previous track"
         // qmllint enable unresolved-type
         name: "mediaPrev"
-        description: "Previous track"
+
         onPressed: {
             const active = root.active;
             if (active && active.canGoPrevious)
@@ -250,9 +261,10 @@ Singleton {
 
     // qmllint disable unresolved-type
     CustomShortcut {
+        description: "Next track"
         // qmllint enable unresolved-type
         name: "mediaNext"
-        description: "Next track"
+
         onPressed: {
             const active = root.active;
             if (active && active.canGoNext)
@@ -262,9 +274,10 @@ Singleton {
 
     // qmllint disable unresolved-type
     CustomShortcut {
+        description: "Stop media playback"
         // qmllint enable unresolved-type
         name: "mediaStop"
-        description: "Stop media playback"
+
         onPressed: root.active?.stop()
     }
 
@@ -278,16 +291,22 @@ Singleton {
             return root.list.map(p => root.getIdentity(p)).join("\n");
         }
 
-        function play(): void {
+        function next(): void {
             const active = root.active;
-            if (active?.canPlay)
-                active.play();
+            if (active?.canGoNext)
+                active.next();
         }
 
         function pause(): void {
             const active = root.active;
             if (active?.canPause)
                 active.pause();
+        }
+
+        function play(): void {
+            const active = root.active;
+            if (active?.canPlay)
+                active.play();
         }
 
         function playPause(): void {
@@ -300,12 +319,6 @@ Singleton {
             const active = root.active;
             if (active?.canGoPrevious)
                 active.previous();
-        }
-
-        function next(): void {
-            const active = root.active;
-            if (active?.canGoNext)
-                active.next();
         }
 
         function stop(): void {

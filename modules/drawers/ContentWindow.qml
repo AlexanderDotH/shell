@@ -29,7 +29,7 @@ StyledWindow {
             if (!specialName)
                 return false;
             const specialWs = Hypr.workspaces.values.find(ws => ws.name === specialName);
-            return specialWs?.toplevels.values.some(t => t.lastIpcObject.fullscreen > 1) ?? false;
+            return specialWs?.toplevels?.values?.some(t => t.lastIpcObject.fullscreen > 1) ?? false;
         }
         return hasFullscreenOnNormalWs;
     }
@@ -58,6 +58,8 @@ StyledWindow {
     }
 
     onHasFullscreenChanged: {
+        if (!screenState)
+            return;
         screenState.launcher = false;
         screenState.session = false;
         screenState.dashboard = false;
@@ -67,7 +69,7 @@ StyledWindow {
     name: "drawers"
     WlrLayershell.exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: (fsTransitionProg > 0 && contentItem.Config.general.showOverFullscreen) || (hasSpecialWorkspace && hasFullscreenOnNormalWs) ? WlrLayer.Overlay : WlrLayer.Top
-    WlrLayershell.keyboardFocus: screenState.launcher || screenState.session ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: screenState && (screenState.launcher || screenState.session) ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
     mask: hasFullscreen ? emptyRegion : regions
 
@@ -114,6 +116,8 @@ StyledWindow {
         active: {
             const s = root.screenState;
             const conf = root.contentItem.Config;
+            if (!s)
+                return false;
             if ((s.launcher && conf.launcher.enabled) || (s.session && conf.session.enabled) || (s.sidebar && conf.sidebar.enabled))
                 return true;
             if (!conf.dashboard.showOnHover && s.dashboard && conf.dashboard.enabled)
@@ -124,10 +128,13 @@ StyledWindow {
         }
         windows: [root]
         onCleared: {
-            root.screenState.launcher = false;
-            root.screenState.session = false;
-            root.screenState.sidebar = false;
-            root.screenState.dashboard = false;
+            const s = root.screenState;
+            if (s) {
+                s.launcher = false;
+                s.session = false;
+                s.sidebar = false;
+                s.dashboard = false;
+            }
             panels.popouts.hasCurrent = false;
             bar.closeTray();
         }
@@ -135,7 +142,7 @@ StyledWindow {
 
     StyledRect {
         anchors.fill: parent
-        opacity: (root.screenState.session && Config.session.enabled) || panels.popouts.detachedMode !== "" ? 0.5 : 0
+        opacity: ((root.screenState?.session ?? false) && Config.session.enabled) || panels.popouts.detachedMode !== "" ? 0.5 : 0
         color: Colours.palette.m3scrim
 
         Behavior on opacity {

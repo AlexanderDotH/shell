@@ -23,10 +23,22 @@ Singleton {
     readonly property bool connecting: connectProc.running || connectPending
     readonly property bool disconnecting: disconnectProc.running || disconnectPending
 
-    // Internal id of the currently selected provider (persisted). Only one
-    // provider can be selected at a time; empty means none. Keyed by id rather
-    // than name so the selection survives renames.
-    readonly property string selectedProvider: GlobalConfig.utilities.vpn.selectedProvider
+    // Internal id of the currently selected provider. Prefer the persisted id,
+    // but keep legacy providers usable through a deterministic in-memory id.
+    // This avoids rewriting an otherwise valid user config just by starting
+    // the shell.
+    readonly property string selectedProvider: {
+        const providers = root.providerConfigs;
+        if (providers.length === 0)
+            return "";
+
+        const configured = GlobalConfig.utilities.vpn.selectedProvider;
+        if (configured.length > 0 && providers.some(p => p.id === configured))
+            return configured;
+
+        const legacyIndex = GlobalConfig.utilities.vpn.provider.findIndex(p => typeof p === "object" && p.enabled === true);
+        return providers[legacyIndex >= 0 ? legacyIndex : 0].id;
+    }
 
     // Live connection stats, refreshed on demand by the UI via refreshStats().
     property double connectedSince: 0
@@ -49,8 +61,8 @@ Singleton {
         const sel = root.selectedProvider;
         if (sel.length === 0)
             return "wireguard";
-        const match = GlobalConfig.utilities.vpn.provider.find(p => typeof p === "object" && p.id === sel);
-        return match || "wireguard";
+        const match = root.providerConfigs.find(p => p.id === sel);
+        return match ? GlobalConfig.utilities.vpn.provider[match.index] : "wireguard";
     }
 
     // The single point where every configured provider - a built-in name, a
@@ -105,7 +117,7 @@ Singleton {
             const isObject = typeof p === "object";
             out.push({
                 index: i,
-                id: isObject ? (p.id || "") : "",
+                id: root.providerIdFor(p, i),
                 name: isObject ? (p.name || "custom") : String(p),
                 displayName: isObject ? (p.displayName || p.name || String(p)) : String(p),
                 interface: isObject ? (p.interface || "") : "",
@@ -155,6 +167,14 @@ Singleton {
         return `vpn-${Date.now().toString(36)}-${Math.floor(Math.random() * 0x1000000).toString(36)}`;
     }
 
+    // Legacy entries predate persisted ids. Their index is stable for the
+    // current config, so it is sufficient as a non-persisted compatibility id.
+    function providerIdFor(entry: var, index: int): string {
+        if (entry && typeof entry === "object" && typeof entry.id === "string" && entry.id.length > 0)
+            return entry.id;
+        return `legacy-${index}`;
+    }
+
     // Rebuild a provider object for persistence, preserving optional commands.
     // `id` is the provider's stable internal id.
     function buildProviderObject(id: string, data: var): var {
@@ -179,7 +199,7 @@ Singleton {
     // Resolve the stable internal id of the provider entry at `index`.
     function providerIdAt(index: int): string {
         const entry = GlobalConfig.utilities.vpn.provider[index];
-        return (entry && typeof entry === "object") ? (entry.id || "") : "";
+        return root.providerIdFor(entry, index);
     }
 
     // Add a new provider. data: { name, displayName, interface, connectCmd[],
@@ -235,10 +255,15 @@ Singleton {
     // (or clear it when the list is empty).
     function ensureSelection(): void {
         const configs = root.providerConfigs;
-        if (configs.some(p => p.id === root.selectedProvider))
+        const configured = GlobalConfig.utilities.vpn.selectedProvider;
+
+        // An empty persisted id is the valid legacy representation. The
+        // selectedProvider binding supplies its in-memory fallback without
+        // turning a shell startup into a config write.
+        if (configured.length === 0 || configs.some(p => p.id === configured))
             return;
         const next = configs.length > 0 ? configs[0].id : "";
-        if (next !== root.selectedProvider)
+        if (next !== configured)
             GlobalConfig.utilities.vpn.selectedProvider = next;
     }
 
@@ -544,41 +569,6 @@ Singleton {
         }
     }
 
-    // Ensure every provider entry is an object carrying a stable internal id,
-    // and fold any legacy per-provider `enabled` flag into the single selection.
-    // Runs once at startup and rewrites the config only if something changed.
-    function migrateProviders(): void {
-        const list = GlobalConfig.utilities.vpn.provider;
-        const result = [];
-        let selectedId = root.selectedProvider;
-        let changed = false;
-
-        for (const p of list) {
-            const isObject = typeof p === "object";
-            const obj = isObject ? Object.assign({}, p) : {
-                name: String(p)
-            };
-            if (!isObject)
-                changed = true;
-            if (!obj.id) {
-                obj.id = root.generateId();
-                changed = true;
-            }
-            if (obj.enabled === true && selectedId.length === 0)
-                selectedId = obj.id;
-            if ("enabled" in obj) {
-                delete obj.enabled;
-                changed = true;
-            }
-            result.push(obj);
-        }
-
-        if (selectedId !== root.selectedProvider)
-            GlobalConfig.utilities.vpn.selectedProvider = selectedId;
-        if (changed)
-            writeProviders(result);
-    }
-
     onConnectedChanged: {
         // Stamp / clear the connection start time and the per-connection stats.
         if (connected) {
@@ -636,7 +626,6 @@ Singleton {
     }
 
     Component.onCompleted: {
-        root.migrateProviders();
         root.ensureSelection();
         root.syncProviders();
         if (root.selectedProvider.length > 0) {

@@ -27,3 +27,15 @@ target_include_directories(codexresetcredits-test PRIVATE ../src/Caelestia/Servi
 target_link_libraries(codexresetcredits-test PRIVATE Qt::Core)
 
 add_test(NAME codexresetcredits COMMAND codexresetcredits-test)
+
+add_executable(requests-test
+    requests_test.cpp
+    ../src/Caelestia/requests.cpp
+    ../src/Caelestia/requests.hpp
+)
+
+target_include_directories(requests-test PRIVATE ../src/Caelestia)
+target_link_libraries(requests-test PRIVATE Qt::Core Qt::Qml Qt::Network)
+
+add_test(NAME requests COMMAND requests-test)
+set_tests_properties(requests PROPERTIES TIMEOUT 10)

@@ -57,7 +57,11 @@ int main() {
     ok &= expect(map.value(QStringLiteral("availableCount")).toLongLong() == 4, "the QML map exposes the count");
     const auto credits = map.value(QStringLiteral("credits")).toList();
     ok &= expect(credits.size() == 2, "the QML map exposes credit details");
-    ok &= expect(credits.first().toMap().value(QStringLiteral("description")).toString().contains(QStringLiteral("free rate limit reset")),
+    ok &= expect(credits.first()
+                     .toMap()
+                     .value(QStringLiteral("description"))
+                     .toString()
+                     .contains(QStringLiteral("free rate limit reset")),
         "the QML map exposes the backend description");
 
     const auto missing = parse(QJsonValue(QJsonValue::Null));

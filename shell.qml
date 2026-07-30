@@ -17,18 +17,19 @@ import qs.services
 ShellRoot {
     id: root
 
+    readonly property bool shellUiReady: !startupSplash.active
+
     settings.watchFiles: true
 
     Binding {
-        target: ShellState
         property: "shellRoot"
+        target: ShellState
         value: root
     }
 
     GSFLoader {}
-    ServiceLoader {}
 
-    readonly property bool shellUiReady: !startupSplash.active
+    ServiceLoader {}
 
     StartupSplash {
         id: startupSplash
@@ -39,18 +40,23 @@ ShellRoot {
 
         Item {
             Background {}
+
             Drawers {}
         }
     }
 
     AreaPicker {}
+
     Lock {
         id: lock
     }
 
     ConfigToasts {}
+
     Shortcuts {}
+
     BatteryMonitor {}
+
     IdleMonitors {
         lock: lock
     }

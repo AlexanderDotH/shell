@@ -106,10 +106,12 @@ private:
 
     void fetchLrclibById(const QString& id, int reqId);
     void fetchNetEaseLyricsById(const QString& id, int reqId, const LyricCandidate& candidate = {});
-    void fetchDeezerLyricsById(const QString& id, int reqId, const LyricCandidate& candidate = {}, bool chainOnFailure = false);
+    void fetchDeezerLyricsById(
+        const QString& id, int reqId, const LyricCandidate& candidate = {}, bool chainOnFailure = false);
     void fetchMusixmatchLyricsById(
         const QString& id, int reqId, const LyricCandidate& candidate = {}, bool chainOnFailure = false);
-    void fetchSpicyLyricsById(const QString& id, int reqId, const LyricCandidate& candidate = {}, bool chainOnFailure = false);
+    void fetchSpicyLyricsById(
+        const QString& id, int reqId, const LyricCandidate& candidate = {}, bool chainOnFailure = false);
 
     QNetworkReply* getJson(const QUrl& url, const QHash<QByteArray, QByteArray>& headers = {});
     QNetworkReply* postJson(
@@ -129,9 +131,8 @@ private:
     [[nodiscard]] QString deezerArl() const;
     [[nodiscard]] QString spotifyAccessToken() const;
     [[nodiscard]] QUrl netEaseApiUrl(const QString& endpoint) const;
-    [[nodiscard]] QUrl musixmatchDesktopUrl(
-        const QString& endpoint, const QString& userToken, const QList<QPair<QString, QString>>& extraParams,
-        const QString& signKey = {});
+    [[nodiscard]] QUrl musixmatchDesktopUrl(const QString& endpoint, const QString& userToken,
+        const QList<QPair<QString, QString>>& extraParams, const QString& signKey = {});
     void ensureMusixmatchDesktopToken(int reqId, std::function<void(const QString&)> callback);
     void ensureMusixmatchSignKey(int reqId, std::function<void(const QString&)> callback);
     void ensureSpotifyAccessToken(int reqId, std::function<void(const QString&)> callback);

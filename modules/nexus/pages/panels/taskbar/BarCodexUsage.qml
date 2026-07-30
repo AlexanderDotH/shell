@@ -10,78 +10,70 @@ import qs.modules.nexus.common
 PageBase {
     id: root
 
+    readonly property QtObject codexUsageRef: CServices.ServiceRef {
+        service: CServices.CodexUsage
+    }
     readonly property list<MenuItem> accountDisplayItems: [
         MenuItem {
-            text: qsTr("Masked email")
             icon: "alternate_email"
+            text: qsTr("Masked email")
             value: "maskedEmail"
         },
         MenuItem {
-            text: qsTr("Full email")
             icon: "badge"
+            text: qsTr("Full email")
             value: "fullEmail"
         },
         MenuItem {
-            text: qsTr("Plan only")
             icon: "workspace_premium"
+            text: qsTr("Plan only")
             value: "planOnly"
         }
     ]
-
-    readonly property list<MenuItem> pricingBasisItems: [
-        MenuItem {
-            text: qsTr("Detected model")
-            icon: "data_object"
-            value: "detectedModel"
-        },
-        MenuItem {
-            text: qsTr("GPT-5.6 Sol")
-            icon: "api"
-            value: "gpt-5.6-sol"
-        },
-        MenuItem {
-            text: qsTr("GPT-5.6 Terra")
-            icon: "balance"
-            value: "gpt-5.6-terra"
-        },
-        MenuItem {
-            text: qsTr("GPT-5.6 Luna")
-            icon: "savings"
-            value: "gpt-5.6-luna"
-        },
-        MenuItem {
-            text: qsTr("GPT-5.5")
-            icon: "api"
-            value: "gpt-5.5"
-        },
-        MenuItem {
-            text: qsTr("Codex model")
-            icon: "code"
-            value: "codexModel"
-        }
-    ]
-
     readonly property list<MenuItem> monthlyWindowItems: [
         MenuItem {
-            text: qsTr("Calendar month")
             icon: "calendar_month"
+            text: qsTr("Calendar month")
             value: "calendarMonth"
         },
         MenuItem {
-            text: qsTr("Rolling 30 days")
             icon: "history"
+            text: qsTr("Rolling 30 days")
             value: "rolling30Days"
         }
     ]
-
-    function entryIndex(): int {
-        return GlobalConfig.bar.entries.findIndex(e => e.id === "codexUsage");
-    }
-
-    function entryEnabled(): bool {
-        const idx = entryIndex();
-        return idx >= 0 && (GlobalConfig.bar.entries[idx].enabled ?? true) && GlobalConfig.bar.codexUsage.enabled;
-    }
+    readonly property list<MenuItem> pricingBasisItems: [
+        MenuItem {
+            icon: "data_object"
+            text: qsTr("Detected model")
+            value: "detectedModel"
+        },
+        MenuItem {
+            icon: "api"
+            text: qsTr("GPT-5.6 Sol")
+            value: "gpt-5.6-sol"
+        },
+        MenuItem {
+            icon: "balance"
+            text: qsTr("GPT-5.6 Terra")
+            value: "gpt-5.6-terra"
+        },
+        MenuItem {
+            icon: "savings"
+            text: qsTr("GPT-5.6 Luna")
+            value: "gpt-5.6-luna"
+        },
+        MenuItem {
+            icon: "api"
+            text: qsTr("GPT-5.5")
+            value: "gpt-5.5"
+        },
+        MenuItem {
+            icon: "code"
+            text: qsTr("Codex model")
+            value: "codexModel"
+        }
+    ]
 
     function copyEntry(entry: var): var {
         const copy = {};
@@ -89,6 +81,15 @@ PageBase {
             copy[k] = entry[k];
         });
         return copy;
+    }
+
+    function entryEnabled(): bool {
+        const idx = entryIndex();
+        return idx >= 0 && (GlobalConfig.bar.entries[idx].enabled ?? true) && GlobalConfig.bar.codexUsage.enabled;
+    }
+
+    function entryIndex(): int {
+        return GlobalConfig.bar.entries.findIndex(e => e.id === "codexUsage");
     }
 
     function setEntryEnabled(enabled: bool): void {
@@ -108,22 +109,14 @@ PageBase {
         GlobalConfig.bar.codexUsage.enabled = enabled;
     }
 
-    function activeItem(items: var, value: string): MenuItem {
-        return items.find(i => i.value === value) ?? items[0];
-    }
-
-    readonly property QtObject codexUsageRef: CServices.ServiceRef {
-        service: CServices.CodexUsage
-    }
-
-    title: qsTr("Codex usage")
     isSubPage: true
+    title: qsTr("Codex usage")
 
     ColumnLayout {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
-        width: root.cappedWidth
         spacing: Tokens.spacing.extraSmall / 2
+        width: root.cappedWidth
 
         // Taskbar
         SectionHeader {
@@ -132,32 +125,36 @@ PageBase {
         }
 
         ToggleRow {
-            first: true
-            text: qsTr("Show Codex usage")
-            subtext: CServices.CodexUsage.status
             checked: root.entryEnabled()
+            first: true
+            subtext: CServices.CodexUsage.status
+            text: qsTr("Show Codex usage")
+
             onToggled: root.setEntryEnabled(checked)
         }
 
         ToggleRow {
-            text: qsTr("Popout on hover")
-            subtext: qsTr("Show account, token, reset, and pricing details")
             checked: GlobalConfig.bar.popouts.codexUsage
+            subtext: qsTr("Show account, token, reset, and pricing details")
+            text: qsTr("Popout on hover")
+
             onToggled: GlobalConfig.bar.popouts.codexUsage = checked
         }
 
         ToggleRow {
-            text: qsTr("5-hour ring")
-            subtext: qsTr("Use Codex's reported 300-minute rate-limit window")
             checked: GlobalConfig.bar.codexUsage.showFiveHour
+            subtext: qsTr("Use Codex's reported 300-minute rate-limit window")
+            text: qsTr("5-hour ring")
+
             onToggled: GlobalConfig.bar.codexUsage.showFiveHour = checked
         }
 
         ToggleRow {
-            last: true
-            text: qsTr("Weekly ring")
-            subtext: qsTr("Use Codex's reported 10080-minute rate-limit window")
             checked: GlobalConfig.bar.codexUsage.showWeekly
+            last: true
+            subtext: qsTr("Use Codex's reported 10080-minute rate-limit window")
+            text: qsTr("Weekly ring")
+
             onToggled: GlobalConfig.bar.codexUsage.showWeekly = checked
         }
 
@@ -166,66 +163,63 @@ PageBase {
             text: qsTr("Data")
         }
 
-        M3TextField {
+        StyledTextField {
             id: codexHome
 
             Layout.fillWidth: true
-            label: qsTr("Codex home")
-            placeholder: "~/.codex"
-            leadingIcon: "folder"
-            text: GlobalConfig.bar.codexUsage.codexHome
-            supportingText: qsTr("Leave empty to use CODEX_HOME or ~/.codex")
             inputMethodHints: Qt.ImhNoPredictiveText
-            onAccepted: GlobalConfig.bar.codexUsage.codexHome = text.trim()
-        }
+            leadingIcon: "folder"
+            placeholderText: qsTr("Codex home")
+            supportingText: qsTr("Leave empty to use CODEX_HOME or ~/.codex")
+            text: GlobalConfig.bar.codexUsage.codexHome
 
-        Connections {
-            function onEditingFinished(): void {
-                GlobalConfig.bar.codexUsage.codexHome = codexHome.text.trim();
-            }
-
-            target: codexHome.field
+            onEditingFinished: GlobalConfig.bar.codexUsage.codexHome = codexHome.text.trim()
         }
 
         StepperRow {
-            label: qsTr("Refresh interval")
-            subtext: qsTr("Seconds between local Codex usage refreshes")
-            value: GlobalConfig.bar.codexUsage.refreshIntervalSeconds
             from: 5
-            to: 300
+            label: qsTr("Refresh interval")
             stepSize: 5
+            subtext: qsTr("Seconds between local Codex usage refreshes")
+            to: 300
+            value: GlobalConfig.bar.codexUsage.refreshIntervalSeconds
+
             onMoved: v => GlobalConfig.bar.codexUsage.refreshIntervalSeconds = Math.round(v)
         }
 
         SelectRow {
+            active: root.accountDisplayItems.find(item => item.value === GlobalConfig.bar.codexUsage.accountDisplay) ?? root.accountDisplayItems[0]
             label: qsTr("Account display")
-            subtext: qsTr("Masking keeps the tooltip safe for screenshots")
             menuItems: root.accountDisplayItems
-            active: root.activeItem(root.accountDisplayItems, GlobalConfig.bar.codexUsage.accountDisplay)
+            subtext: qsTr("Masking keeps the tooltip safe for screenshots")
+
             onSelected: item => GlobalConfig.bar.codexUsage.accountDisplay = item.value
         }
 
         SelectRow {
+            active: root.pricingBasisItems.find(item => item.value === GlobalConfig.bar.codexUsage.pricingBasis) ?? root.pricingBasisItems[0]
             label: qsTr("Pricing basis")
-            subtext: qsTr("Model used for the API equivalent")
             menuItems: root.pricingBasisItems
-            active: root.activeItem(root.pricingBasisItems, GlobalConfig.bar.codexUsage.pricingBasis)
+            subtext: qsTr("Model used for the API equivalent")
+
             onSelected: item => GlobalConfig.bar.codexUsage.pricingBasis = item.value
         }
 
         SelectRow {
+            active: root.monthlyWindowItems.find(item => item.value === GlobalConfig.bar.codexUsage.monthlyWindow) ?? root.monthlyWindowItems[0]
             label: qsTr("Monthly window")
-            subtext: qsTr("Range used for the token and dollar totals")
             menuItems: root.monthlyWindowItems
-            active: root.activeItem(root.monthlyWindowItems, GlobalConfig.bar.codexUsage.monthlyWindow)
+            subtext: qsTr("Range used for the token and dollar totals")
+
             onSelected: item => GlobalConfig.bar.codexUsage.monthlyWindow = item.value
         }
 
         ToggleRow {
-            last: true
-            text: qsTr("API equivalent")
-            subtext: qsTr("Show the monthly standard API price comparison")
             checked: GlobalConfig.bar.codexUsage.showSavings
+            last: true
+            subtext: qsTr("Show the monthly standard API price comparison")
+            text: qsTr("API equivalent")
+
             onToggled: GlobalConfig.bar.codexUsage.showSavings = checked
         }
     }

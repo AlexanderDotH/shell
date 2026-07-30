@@ -208,9 +208,7 @@ ColumnLayout {
                     id: resetCountLabel
 
                     anchors.centerIn: parent
-                    text: root.resetState === "ready"
-                        ? (root.resetCount === 1 ? qsTr("1 available") : qsTr("%1 available").arg(root.resetCount))
-                        : (root.resetState === "loading" ? qsTr("Checking…") : qsTr("Unavailable"))
+                    text: root.resetState === "ready" ? (root.resetCount === 1 ? qsTr("1 available") : qsTr("%1 available").arg(root.resetCount)) : (root.resetState === "loading" ? qsTr("Checking…") : qsTr("Unavailable"))
                     color: root.resetState === "ready" ? Colours.palette.m3onSurface : Colours.palette.m3outline
                     font: Tokens.font.label.builders.small.weight(Font.Medium).build()
                 }
@@ -326,7 +324,6 @@ ColumnLayout {
                     valueColour: Colours.palette.m3onSecondaryContainer
                 }
             }
-
         }
     }
 

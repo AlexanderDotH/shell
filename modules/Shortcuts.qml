@@ -10,7 +10,7 @@ Scope {
     id: root
 
     property bool launcherInterrupted
-    readonly property bool hasFullscreen: Hypr.focusedWorkspace?.toplevels.values.some(t => t.lastIpcObject.fullscreen > 1) ?? false
+    readonly property bool hasFullscreen: Hypr.focusedWorkspace?.toplevels?.values.some(t => t.lastIpcObject.fullscreen > 1) ?? false
 
     function openNexus(): void {
         WindowFactory.create();
@@ -40,8 +40,10 @@ Scope {
         onPressed: {
             if (root.hasFullscreen)
                 return;
-            const v = ShellState.forActive();
-            v.launcher = v.dashboard = v.osd = v.utilities = !(v.launcher || v.dashboard || v.osd || v.utilities);
+            const screenState = ShellState.forActive();
+            if (!screenState)
+                return;
+            screenState.launcher = screenState.dashboard = screenState.osd = screenState.utilities = !(screenState.launcher || screenState.dashboard || screenState.osd || screenState.utilities);
         }
     }
 
@@ -54,6 +56,8 @@ Scope {
             if (root.hasFullscreen)
                 return;
             const screenState = ShellState.forActive();
+            if (!screenState)
+                return;
             screenState.dashboard = !screenState.dashboard;
         }
     }
@@ -67,6 +71,8 @@ Scope {
             if (root.hasFullscreen)
                 return;
             const screenState = ShellState.forActive();
+            if (!screenState)
+                return;
             screenState.session = !screenState.session;
         }
     }
@@ -80,7 +86,8 @@ Scope {
         onReleased: {
             if (!root.launcherInterrupted && !root.hasFullscreen) {
                 const screenState = ShellState.forActive();
-                screenState.launcher = !screenState.launcher;
+                if (screenState)
+                    screenState.launcher = !screenState.launcher;
             }
             root.launcherInterrupted = false;
         }
@@ -103,6 +110,8 @@ Scope {
             if (root.hasFullscreen)
                 return;
             const screenState = ShellState.forActive();
+            if (!screenState)
+                return;
             screenState.sidebar = !screenState.sidebar;
         }
     }
@@ -116,16 +125,22 @@ Scope {
             if (root.hasFullscreen)
                 return;
             const screenState = ShellState.forActive();
+            if (!screenState)
+                return;
             screenState.utilities = !screenState.utilities;
         }
     }
 
     IpcHandler {
         function toggle(drawer: string): void {
-            if (list().split("\n").includes(drawer)) {
+            const screenState = ShellState.forActive();
+            if (!screenState)
+                return;
+
+            const drawers = Object.keys(screenState).filter(k => typeof screenState[k] === "boolean");
+            if (drawers.includes(drawer)) {
                 if (root.hasFullscreen && ["launcher", "session", "dashboard"].includes(drawer))
                     return;
-                const screenState = ShellState.forActive();
                 screenState[drawer] = !screenState[drawer];
             } else {
                 console.warn(lc, `Drawer "${drawer}" does not exist`);
@@ -134,11 +149,15 @@ Scope {
 
         function list(): string {
             const screenState = ShellState.forActive();
+            if (!screenState)
+                return "";
             return Object.keys(screenState).filter(k => typeof screenState[k] === "boolean").join("\n");
         }
 
         function isOpen(drawer: string): string {
             const screenState = ShellState.forActive();
+            if (!screenState)
+                return "unknown";
             if (typeof screenState[drawer] !== "boolean")
                 return "unknown";
             return screenState[drawer] ? "1" : "0";
