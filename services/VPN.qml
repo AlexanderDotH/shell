@@ -56,6 +56,10 @@ Singleton {
 
     // For auto connect on init from config
     property bool autoConnectPending
+    // Keep a persisted auto-connect request intact while its startup attempt is
+    // still unresolved or has failed. A transient failure must not silently
+    // disable the user's next-start intent.
+    property bool autoConnectAttemptActive
 
     readonly property var providerInput: {
         const sel = root.selectedProvider;
@@ -538,8 +542,10 @@ Singleton {
         // Auto connect if config was enabled on init
         if (root.autoConnectPending) {
             root.autoConnectPending = false;
-            if (!newStatus.connected)
+            if (!newStatus.connected) {
+                root.autoConnectAttemptActive = true;
                 root.connect();
+            }
         }
     }
 
@@ -582,8 +588,13 @@ Singleton {
             pingMs = -1;
         }
 
-        // Update config flag, but not on provider switch
-        if (pendingSwitchProvider.length === 0 && GlobalConfig.utilities.vpn.enabled !== connected)
+        const preserveAutoConnectIntent = autoConnectAttemptActive && !connected;
+        if (connected)
+            autoConnectAttemptActive = false;
+
+        // Update the config flag for observed/manual state changes, but not on
+        // provider switches or when a startup auto-connect attempt fails.
+        if (!preserveAutoConnectIntent && pendingSwitchProvider.length === 0 && GlobalConfig.utilities.vpn.enabled !== connected)
             GlobalConfig.utilities.vpn.enabled = connected;
 
         if (!connected && pendingSwitchProvider.length > 0) {
